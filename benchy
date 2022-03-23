@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+# Benchy V1.0
+# Heavily influenced by MasonR's Yet-Another-Bench-Script
+# https://github.com/masonr/yet-another-bench-script
+currentDate=$(date +"%d %b %Y %H:%M %Z")
+echo -e '# # # # # # # # # # # # # # # # # # #'
+echo -e '#            Benchy v1.0            #'
+echo -e '#   https://github.com/L1so/benchy  #'
+echo -e '#        AIO Benchmarking tool      #'
+echo -e '# # # # # # # # # # # # # # # # # # #'
+echo -e "#       $currentDate       #"
+echo -e '# # # # # # # # # # # # # # # # # # #'
+echo
+convertsize() {
+  local i=${1:-0} d="" s=0 S=("KiB" "MiB" "GiB" "TiB" "PiB" "EiB" "YiB" "ZiB")
+  while ((i > 1024 && s < ${#S[@]}-1)); do
+      printf -v d ".%02d" $((i % 1024 * 100 / 1024))
+      i=$((i / 1024))
+      s=$((s + 1))
+  done
+  echo "$i$d ${S[$s]}"
+}
+format_disk() {
+  local i=${1:-0} d="" s=0 S=("KB/s" "MB/s" "GB/s")
+  while ((i > 1000 && s < ${#S[@]}-1)); do
+      printf -v d ".%02d" $((i % 1000 * 100 / 1000))
+      i=$((i / 1000))
+      s=$((s + 1))
+  done
+  echo "$i$d ${S[$s]}"
+}
+
+overline() {
+  printf "\r%s" "$(tput el)"
+}
+
+binarycheck() {
+  # Building directory
+  benchy_path=$HOME/.benchy_file
+  fio_path=$benchy_path/fio
+  iperf_path=$benchy_path/iperf3
+  screen_path=$benchy_path/screen
+  bc_path=$benchy_path/bc
+  country_json=$benchy_path/country.json
+
+  # Fio binary
+  command -v fio >/dev/null 2>&1 && fio="fio" || fio="$fio_path/fio"
+  # Iperf binary
+  command -v iperf3 >/dev/null 2>&1 && iperf="iperf3" || iperf="$iperf_path/iperf3"
+  # Screen binary
+  command -v screen >/dev/null 2>&1 && screen="screen" || screen="$screen_path/screen"
+  # bc binary
+  command -v bc >/dev/null 2>&1 && bc="bc" || bc="$bc_path/bc"
+
+  if [ ! -d "$benchy_path" ]; then
+    #printf "%s" "Creating $benchy_path, all benchy related file will be stored in here..."
+    [ ! -d "$benchy_path" ] && mkdir -p $benchy_path
+    [ ! -d "$fio_path" ] && mkdir -p $fio_path
+    [ ! -d "$iperf_path" ] && mkdir -p $iperf_path
+    [ ! -d "$screen_path" ] && mkdir -p $screen_path
+    [ ! -d "$bc_path" ] && mkdir -p $bc_path
+    #printf "\r%s" "$(tput el)"
+
+    printf "%s" "Downloading required asset, please wait a moment..."
+
+    # Country.json
+    curl -s https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw -o $country_json
+
+    # Download fio if not exist
+    if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
+      curl -s --connect-timeout 5 \
+      --retry 5 --retry-delay 0 https://raw.githubusercontent.com/masonr/yet-another-bench-script/master/bin/fio/fio_$arch -o $fio_path/fio
+      [ $? -eq 0 ] && chmod u+x $fio_path/fio
+    fi
+
+    # Download iperf3 if not exist
+    if [ "$iperf" != "iperf3" ] && [ ! -f "$iperf_path/iperf3" ]; then
+      curl -s --connect-timeout 5 --retry 5 \
+      --retry-delay 0 https://raw.githubusercontent.com/masonr/yet-another-bench-script/master/bin/iperf/iperf3_$arch -o $iperf_path/iperf3
+      [ $? -eq 0 ] && chmod u+x $iperf_path/iperf3
+    fi
+
+    # # Download screen if not exist
+    # if [ "$screen" != "screen" ] && [ ! -f "$screen_path/screen" ]; then
+    #   # curl command here
+    #   [ $? -eq 0 ] && chmod u+x $screen_path/screen
+    # fi
+
+    # Download bc if not exist
+    if [ "$bc" != "bc" ] && [ ! -f "$bc_path/bc" ]; then
+      curl -L -s --connect-timeout 5 \
+      --retry 5 --retry-delay 0 https://www.dropbox.com/s/euwhzqvknqgcid2/bc_$arch -o $bc_path/bc
+      [ $? -eq 0 ] && chmod u+x $bc_path/bc
+    fi
+    overline
+  fi
+}
+
+user_arch() {
+  # Determine what type of architecture this server runs off
+  # Most commonly would be 64 bit
+  arch=$(uname -m)
+  case "$arch" in
+    *x86_64*) arch="x64"; fio_size="2G";;
+    *i?86*) arch="x86"; fio_size="2G";;
+    *arm*|*aarch*)
+    if [ "$(getconf LONG_BIT)" = *"64"* ]; then
+      arch="aarch64"
+    else
+      arch="arm"
+    fi
+    fio_size="512M"
+    printf "ARM based device is not *officially supported*, use with caution.\n"
+    ;;
+    *) printf "Architecture not found\n"; exit 1;;
+  esac
+}
+
+sysinfo() {
+  # System Information
+  # OS
+  . "/etc/lsb-release"
+  local currentOS="${DISTRIB_DESCRIPTION}"
+  # Uptime
+  local uptime_now=$(awk '{print int($1/86400)" Days, "int($1%86400/3600)" Hours, "int(($1%3600)/60)" Minute, "int($1%60)" Seconds "}' /proc/uptime)
+  # Location
+  local short_country=$(wget -q -T10 -O- ipinfo.io/country)
+  local country=$(grep -Po '"'"$short_country"'"\s*:\s*"\K([^"]*)' "$country_json")
+  # IPv4 check
+  curl -s --connect-timeout 1 --max-time 1 "ipv4.icanhazip.com" >/dev/null 2>&1 && local ipv4_status="\xE2\x9C\x94 Enabled" || local ipv4_status="\xE2\x9D\x8C Disabled"
+  # IPv6 check
+  curl -s --connect-timeout 1 --max-time 1 "ipv6.icanhazip.com" >/dev/null 2>&1 && local ipv6_status="\xE2\x9C\x94 Enabled" || local ipv6_status="\xE2\x9D\x8C Disabled"
+
+  # Processor information
+  local cpu_model=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
+  local cpu_core=$(awk -F: '/model name/ {core++} END {print core}' /proc/cpuinfo)
+  local cpu_freq=$(awk -F: ' /cpu MHz/ {freq=$2} END {print freq " MHz"}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
+  grep -q -m 1 aes /proc/cpuinfo && local cpu_aes="\xE2\x9C\x94 Enabled" || local cpu_aes="\xE2\x9D\x8C Disabled"
+  grep -q -m 1 'vmx\|svm' /proc/cpuinfo && local cpu_virt="\xE2\x9C\x94 Enabled" || local cpu_virt="\xE2\x9D\x8C Disabled"
+  local virt_type=$(hostnamectl | grep -oP '(?<=Virtualization: ).*')
+  local virt_type="${virt_type:-No virt detected}"
+
+  # Disk & Memory Usage
+  local df_output=$(df -t simfs -t ext2 -t ext3 -t ext4 -t btrfs -t xfs -t vfat -t ntfs -t swap)
+  local disk_info=$(convertsize $(echo "$df_output" | awk 'NR==2{ print $2 }'))
+  local disk_usage=$(convertsize $(echo "$df_output" | awk 'NR==2{ print $3 }'))
+  local disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
+
+  local mem_info=$(convertsize $(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo))
+  local mem_usage=$(free -m | awk 'NR==2{printf "%s MB (%.0f%% Used)\n", $3,$3*100/$2 }')
+  local swap_info=$(convertsize $(free | awk '/Swap/ {print $2}'))
+
+  # Printing the output: System Information
+  printf "System Information\n"; printf '%.1s' -{1..21} $'\n'
+  printf "%-11s : %-10b\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "IPv4" "$ipv4_status" "IPv6" "$ipv6_status"
+  echo -e
+
+  # Printing the output: Processor Information
+  printf "Processor Information\n"; printf '%.1s' -{1..21} $'\n'
+  printf "%-11s : %-10b\n" "Model" "$cpu_model" "Core" "$cpu_core @ $cpu_freq" "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
+  echo -e
+
+  # Printing the output: Disk & Memory Usage
+  printf "Disk & Memory Usage\n"; printf '%.1s' -{1..21} $'\n'
+  printf "%-11s : %-10b\n" "Disk" "$disk_info" "Disk Usage" "$disk_usage ($disk_percentage Used)" "Mem" "$mem_info" \
+  "Mem Usage" "$mem_usage" "Swap" "$swap_info"
+  echo
+}
+disk_test() {
+  printf "Generating fio test file..."
+  $fio --name=setup --ioengine=libaio --rw=read --bs=64k --iodepth=64 --numjobs=2 --size=$fio_size --runtime=1 --gtod_reduce=1 --filename=$fio_path/test.fio \
+  --direct=1 --minimal >/dev/null 2>&1
+  overline
+
+  # Run fio on each block size enclosed in array
+  block_sizes=( "4k" "64k" "512k" "1m" )
+  for bs in "${block_sizes[@]}"; do
+    # Iterate over each defined block_size from array
+    printf "%s" "Running fio R+W sampling on $bs block size..."
+    fioutput=$(
+    timeout 35 \
+    $fio --name=rand_rw_$bs \
+    --ioengine=libaio \
+    --rw=randrw \
+    --rwmixread=50 \
+    --bs=$bs \
+    --iodepth=64 \
+    --numjobs=2 \
+    --size=$fio_size \
+    --runtime=30 \
+    --gtod_reduce=1 \
+    --direct=1 \
+    --filename=$fio_path/test.fio \
+    --group_reporting \
+    --minimal 2> /dev/null
+    )
+    [ "$?" -ne 0 ] && continue
+
+    fio_iops_read=$(echo "$fioutput" | cut -d';' -f8)
+    fio_iops_write=$(echo "$fioutput" | cut -d';' -f49)
+    fio_iops=$(printf "%.1fk" "$(echo "scale=2 ; ($fio_iops_read + $fio_iops_write) / 1000" | $bc)")
+    fio_iops_read=$(printf "%.1fk" "$(echo "scale=2 ; $fio_iops_read/ 1000" | $bc)")
+    fio_iops_write=$(printf "%.1fk" "$(echo "scale=2 ; $fio_iops_write/ 1000" | $bc)")
+
+    fio_test_read=$(echo "$fioutput" | cut -d';' -f7)
+    fio_test_write=$(echo "$fioutput" | cut -d';' -f48)
+    fio_test=$(format_disk $(echo "($fio_test_read + $fio_test_write)" | $bc))
+    fio_test_read=$(format_disk $fio_test_read)
+    fio_test_write=$(format_disk $fio_test_write)
+
+    fio_result+=( "$fio_test_read" "$fio_test_write" "$fio_test" "$fio_iops_read" "$fio_iops_write" "$fio_iops" )
+    overline
+  done
+}
+
+disk_check() {
+  # Check storage space eligibility
+  disk_storage=$(df -k . | awk 'NR==2 { print $4 }')
+  case "$arch" in
+     *arm*|*aarch*)
+     if [ "$disk_storage" -lt "512000" ]; then
+       printf "Your disk space is less than 512 MB. Will pass the disk test...\n"
+       return 1
+     fi
+     ;;
+     *)
+     if [ "$disk_storage" -lt "2097152" ]; then
+       printf "Your disk space is less than 2 GB. Will pass the disk test...\n"
+       return 1
+     fi
+     ;;
+  esac
+}
+output_disk_test() {
+  printf "Disk Performance Check (50/50 R/W):\n"
+  # Build output
+  printf "+%75s+\n" | tr ' ' '-'
+  printf "| %-3s | %-11s | %-11s | %-11s | %18s %7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
+  printf "+%75s+\n" | tr ' ' '='
+  # 4k
+  printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "4k" "${fio_result[0]}" "${fio_result[1]}" "${fio_result[2]}" "${fio_result[3]}" "${fio_result[4]}" "${fio_result[5]}"
+  printf "+%75s+\n" | tr ' ' '-'
+  # 64k
+  printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "64k" "${fio_result[6]}" "${fio_result[7]}" "${fio_result[8]}" "${fio_result[9]}" "${fio_result[10]}" "${fio_result[11]}"
+  printf "+%75s+\n" | tr ' ' '-'
+  # 512k
+  printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "512k" "${fio_result[12]}" "${fio_result[13]}" "${fio_result[14]}" "${fio_result[15]}" "${fio_result[16]}" "${fio_result[17]}"
+  printf "+%75s+\n" | tr ' ' '-'
+  # 1M
+  printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "1m" "${fio_result[18]}" "${fio_result[19]}" "${fio_result[20]}" "${fio_result[21]}" "${fio_result[22]}" "${fio_result[23]}"
+  printf "+%75s+\n" | tr ' ' '-'
+}
+#network_test() {
+  #Insert
+#}
+
+main() {
+  user_arch
+  binarycheck
+  sysinfo
+  if disk_check; then
+    # Disk check passed
+    if disk_test; then
+      # Disk test passed
+      output_disk_test
+    else
+      overline && printf "Disk test has failed\n"
+      exit 1
+    fi
+  fi
+}
+
+main
