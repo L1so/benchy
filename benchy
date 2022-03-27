@@ -2,15 +2,26 @@
 # Benchy V1.0
 # Heavily influenced by MasonR's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
-currentDate=$(date +"%d %b %Y %H:%M %Z")
-echo -e '# # # # # # # # # # # # # # # # # # #'
-echo -e '#            Benchy v1.0            #'
-echo -e '#   https://github.com/L1so/benchy  #'
-echo -e '#        AIO Benchmarking tool      #'
-echo -e '# # # # # # # # # # # # # # # # # # #'
-echo -e "#       $currentDate       #"
-echo -e '# # # # # # # # # # # # # # # # # # #'
-echo
+
+exec   > >(tee -ia $HOME/benchy.log)
+exec  2> >(tee -ia $HOME/benchy.log >& 2)
+exec 19> $HOME/benchy.log
+
+export BASH_XTRACEFD="19"
+set -x
+
+header_intro() {
+  currentDate=$(date +"%d %b %Y %H:%M %Z")
+  echo -e '# # # # # # # # # # # # # # # # # # #'
+  echo -e '#            Benchy v1.0            #'
+  echo -e '#   https://github.com/L1so/benchy  #'
+  echo -e '#        AIO Benchmarking tool      #'
+  echo -e '# # # # # # # # # # # # # # # # # # #'
+  echo -e "#       $currentDate       #"
+  echo -e '# # # # # # # # # # # # # # # # # # #'
+  echo
+}
+
 convertsize() {
   local i=${1:-0} d="" s=0 S=("KiB" "MiB" "GiB" "TiB" "PiB" "EiB" "YiB" "ZiB")
   while ((i > 1024 && s < ${#S[@]}-1)); do
@@ -41,6 +52,7 @@ binarycheck() {
   iperf_path=$benchy_path/iperf3
   screen_path=$benchy_path/screen
   bc_path=$benchy_path/bc
+  country_code=$benchy_path/country.txt
   country_json=$benchy_path/country.json
 
   # Fio binary
@@ -62,34 +74,38 @@ binarycheck() {
     #printf "\r%s" "$(tput el)"
 
     printf "%s" "Downloading required asset, please wait a moment..."
+    # gitlink="https://github.com/L1so/benchy/raw/main/binary"
 
+    # Country code
+    curl -s ipinfo.io/country -o $country_code
     # Country.json
     curl -s https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw -o $country_json
 
     # Download fio if not exist
     if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
-      curl -s --connect-timeout 5 \
-      --retry 5 --retry-delay 0 https://raw.githubusercontent.com/masonr/yet-another-bench-script/master/bin/fio/fio_$arch -o $fio_path/fio
+      curl -L -s --connect-timeout 5 \
+      --retry 5 --retry-delay 0 "https://www.dropbox.com/s/0ay9ftavvwzmapr/fio_${arch}" -o $fio_path/fio
       [ $? -eq 0 ] && chmod u+x $fio_path/fio
     fi
 
     # Download iperf3 if not exist
     if [ "$iperf" != "iperf3" ] && [ ! -f "$iperf_path/iperf3" ]; then
-      curl -s --connect-timeout 5 --retry 5 \
-      --retry-delay 0 https://raw.githubusercontent.com/masonr/yet-another-bench-script/master/bin/iperf/iperf3_$arch -o $iperf_path/iperf3
+      curl -L -s --connect-timeout 5 --retry 5 \
+      --retry-delay 0 "https://www.dropbox.com/s/lsnmt9uvjghmksz/iperf3_${arch}" -o $iperf_path/iperf3
       [ $? -eq 0 ] && chmod u+x $iperf_path/iperf3
     fi
 
-    # # Download screen if not exist
-    # if [ "$screen" != "screen" ] && [ ! -f "$screen_path/screen" ]; then
-    #   # curl command here
-    #   [ $? -eq 0 ] && chmod u+x $screen_path/screen
-    # fi
+    # Download screen if not exist
+    if [ "$screen" != "screen" ] && [ ! -f "$screen_path/screen" ]; then
+      curl -L -s --connect-timeout 5 --retry 5 \
+      --retry-delay 0 "https://www.dropbox.com/s/ysd46guir0bxi8g/screen_${arch}" -o $screen_path/screen
+      [ $? -eq 0 ] && chmod u+x $screen_path/screen
+    fi
 
     # Download bc if not exist
     if [ "$bc" != "bc" ] && [ ! -f "$bc_path/bc" ]; then
       curl -L -s --connect-timeout 5 \
-      --retry 5 --retry-delay 0 https://www.dropbox.com/s/euwhzqvknqgcid2/bc_$arch -o $bc_path/bc
+      --retry 5 --retry-delay 0 "https://www.dropbox.com/s/bo51a1qnr881wvk/bc_${arch}" -o $bc_path/bc
       [ $? -eq 0 ] && chmod u+x $bc_path/bc
     fi
     overline
@@ -124,12 +140,11 @@ sysinfo() {
   # Uptime
   local uptime_now=$(awk '{print int($1/86400)" Days, "int($1%86400/3600)" Hours, "int(($1%3600)/60)" Minute, "int($1%60)" Seconds "}' /proc/uptime)
   # Location
-  local short_country=$(wget -q -T10 -O- ipinfo.io/country)
-  local country=$(grep -Po '"'"$short_country"'"\s*:\s*"\K([^"]*)' "$country_json")
+  local country=$(grep -Po '"'"$(cat $country_code)"'"\s*:\s*"\K([^"]*)' "$country_json")
   # IPv4 check
-  curl -s --connect-timeout 1 --max-time 1 "ipv4.icanhazip.com" >/dev/null 2>&1 && local ipv4_status="\xE2\x9C\x94 Enabled" || local ipv4_status="\xE2\x9D\x8C Disabled"
+  curl -s --connect-timeout 1 --max-time 1 "ipv4.icanhazip.com" >/dev/null 2>&1 && ipv4_status="\xE2\x9C\x94 Enabled" || ipv4_status="\xE2\x9D\x8C Disabled"
   # IPv6 check
-  curl -s --connect-timeout 1 --max-time 1 "ipv6.icanhazip.com" >/dev/null 2>&1 && local ipv6_status="\xE2\x9C\x94 Enabled" || local ipv6_status="\xE2\x9D\x8C Disabled"
+  curl -s --connect-timeout 2 --max-time 2 "ipv6.icanhazip.com" >/dev/null 2>&1 && ipv6_status="\xE2\x9C\x94 Enabled" || ipv6_status="\xE2\x9D\x8C Disabled"
 
   # Processor information
   local cpu_model=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
@@ -194,7 +209,9 @@ disk_test() {
     --group_reporting \
     --minimal 2> /dev/null
     )
-    [ "$?" -ne 0 ] && continue
+    [ "$?" -ne 0 ] && \
+    fio_result+=( "Failed" "To" "Bench" "Disk" "Please" "Retry" ) && \
+    continue
 
     fio_iops_read=$(echo "$fioutput" | cut -d';' -f8)
     fio_iops_write=$(echo "$fioutput" | cut -d';' -f49)
@@ -249,25 +266,136 @@ output_disk_test() {
   # 1M
   printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "1m" "${fio_result[18]}" "${fio_result[19]}" "${fio_result[20]}" "${fio_result[21]}" "${fio_result[22]}" "${fio_result[23]}"
   printf "+%75s+\n" | tr ' ' '-'
+  echo
 }
-#network_test() {
-  #Insert
-#}
+
+iperflist() {
+  # iperf3 ipv4 provider list
+  ipv4_provider=$(cat << 'EOF'
+Clouvider London 5200-5209 lon.speedtest.clouvider.net
+Online.net Paris 5200-5209 ping.online.net
+WebHorizon Singapore 9201-9205 iperf.sgp.webhorizon.in
+EOF
+)
+  # iperf3 ipv6 provider list
+  ipv6_provider=$(cat << 'EOF'
+Clouvider London 5200-5209 lon.speedtest.clouvider.net
+Online.net Paris 5200-5209 ping6.online.net
+WebHorizon Singapore 9201-9205 iperf.sgp.webhorizon.in
+EOF
+)
+}
+
+runiperf() {
+  # Define argument
+  local run_url="$1"
+  local run_port="$2"
+  local run_host="$3"
+  local run_flags="$4"
+  local iperflog="$benchy_path/net.log"
+
+  # Send test 5 times
+  for (( i = 1; i < 5; i++ )); do
+    printf "%s" "Performing iperf3 send test to $run_host (Attempt #$i of 5)"
+    local vport=$(shuf -i $run_port -n 1)
+    if timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 --logfile $iperflog; then
+      send_speed=$(awk '/SUM/ && /sender/{ print $6, $7 }' "$iperflog") && printf '' > $iperflog
+      sleep 1 && overline && break
+    else
+      sleep 3 && overline
+    fi
+  done
+  # Receive test 5 times
+  for (( i = 1; i < 5; i++ )); do
+    printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$i of 5)"
+    local vport=$(shuf -i $run_port -n 1)
+    if timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 -R --logfile "$iperflog"; then
+      rec_speed=$(awk '/SUM/ && /receiver/{ print $6, $7 }' "$iperflog") && printf '' > $iperflog
+      sleep 1 && overline && break
+    else
+      sleep 3 && overline
+    fi
+  done
+}
+
+parse_iperf() {
+  iperflist
+  case "$1" in
+    *v4*)
+    # Internet Protocol Version 4 (IPv4) test
+    case "$ipv4_status" in
+      *Enabled*)
+      local iperf_flags="-4"
+      printf "Network Performance Test (IPv4):\n"
+      printf "+%75s+\n" | tr ' ' '-'
+      printf "| %-12s | %-22s | %-15s | %-15s |\n" "Provider" "Location" "Send" "Receive"
+      printf "+%75s+\n" | tr ' ' '='
+      echo "$ipv4_provider" |
+      {
+        while read -r provider loc port url; do
+          runiperf $url $port $provider $iperf_flags
+          case "$send_speed" in
+            ""|*0.00*) send_speed="busy";;
+          esac
+          case "$rec_speed" in
+            ""|*0.00*) rec_speed="busy";;
+          esac
+          printf "| %-12s | %-22s | %-15s | %-15s |\n" "$provider" "$loc" "$send_speed" "$rec_speed"
+          printf "+%75s+\n" | tr ' ' '-'
+          unset send_speed rec_speed
+        done
+      }
+      ;;
+      *) ;;
+    esac
+      ;;
+    *v6*)
+    # Internet Protocol Version 6 (IPv6) test
+    case "$ipv6_status" in
+      *Enabled*)
+      local iperf_flags="-6"
+      printf "Network Performance Test (IPv6):\n"
+      printf "+%75s+\n" | tr ' ' '-'
+      printf "| %-12s | %-22s | %-15s | %-15s |\n" "Provider" "Location" "Send" "Receive"
+      printf "+%75s+\n" | tr ' ' '='
+      echo "$ipv6_provider" |
+      {
+        while read -r provider loc port url; do
+          runiperf $url $port $provider $iperf_flags
+          case "$send_speed" in
+            ""|*0.00*) send_speed="busy";;
+          esac
+          case "$rec_speed" in
+            ""|*0.00*) rec_speed="busy";;
+          esac
+          printf "| %-12s | %-22s | %-15s | %-15s |\n" "$provider" "$loc" "$send_speed" "$rec_speed"
+          printf "+%75s+\n" | tr ' ' '-'
+        done
+      }
+      ;;
+      *) ;;
+    esac
+      ;;
+  esac
+}
 
 main() {
+  header_intro
   user_arch
   binarycheck
   sysinfo
-  if disk_check; then
-    # Disk check passed
-    if disk_test; then
-      # Disk test passed
-      output_disk_test
-    else
-      overline && printf "Disk test has failed\n"
-      exit 1
-    fi
-  fi
+  # if disk_check; then
+  #   # Disk check passed
+  #   if disk_test; then
+  #     # Disk test passed
+  #     output_disk_test
+  #   else
+  #     overline && printf "Disk test has failed\n"
+  #     exit 1
+  #   fi
+  # fi
+  parse_iperf ipv4
+  echo
+  parse_iperf ipv6
 }
-
 main
