@@ -292,14 +292,15 @@ runiperf() {
   local run_port="$2"
   local run_host="$3"
   local run_flags="$4"
-  local iperflog="$benchy_path/net.log"
+  local iperflog
 
   # Send test 5 times
   for (( i = 1; i < 5; i++ )); do
     printf "%s" "Performing iperf3 send test to $run_host (Attempt #$i of 5)"
     local vport=$(shuf -i $run_port -n 1)
-    if timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 --logfile $iperflog; then
-      send_speed=$(awk '/SUM/ && /sender/{ print $6, $7 }' "$iperflog") && printf '' > $iperflog
+    iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6)
+    if [ "$?" -eq 0 ]; then
+      send_speed=$(awk '/SUM/ && /sender/{ print $6, $7 }' "$iperflog")
       sleep 1 && overline && break
     else
       sleep 3 && overline
@@ -309,8 +310,9 @@ runiperf() {
   for (( i = 1; i < 5; i++ )); do
     printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$i of 5)"
     local vport=$(shuf -i $run_port -n 1)
-    if timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 -R --logfile "$iperflog"; then
-      rec_speed=$(awk '/SUM/ && /receiver/{ print $6, $7 }' "$iperflog") && printf '' > $iperflog
+    iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 -R)
+    if [ "$?" -eq 0 ]; then
+      rec_speed=$(awk '/SUM/ && /receiver/{ print $6, $7 }' "$iperflog")
       sleep 1 && overline && break
     else
       sleep 3 && overline
@@ -370,6 +372,7 @@ parse_iperf() {
           esac
           printf "| %-12s | %-22s | %-15s | %-15s |\n" "$provider" "$loc" "$send_speed" "$rec_speed"
           printf "+%75s+\n" | tr ' ' '-'
+          unset send_speed rec_speed
         done
       }
       ;;
