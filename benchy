@@ -348,7 +348,7 @@ parse_iperf() {
         done
       }
       ;;
-      *) ;;
+      *) return 1;;
     esac
       ;;
     *v6*)
@@ -376,7 +376,7 @@ parse_iperf() {
         done
       }
       ;;
-      *) ;;
+      *) return 1;;
     esac
       ;;
   esac
@@ -397,8 +397,7 @@ main() {
   #     exit 1
   #   fi
   # fi
-  parse_iperf ipv4
-  echo
-  parse_iperf ipv6
+  parse_iperf ipv4 && echo
+  parse_iperf ipv6 && echo
 }
 main
