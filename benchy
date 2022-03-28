@@ -300,7 +300,7 @@ runiperf() {
     local vport=$(shuf -i $run_port -n 1)
     iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6)
     if [ "$?" -eq 0 ]; then
-      send_speed=$(awk '/SUM/ && /sender/{ print $6, $7 }' "$iperflog")
+      send_speed=$(echo "$iperflog" | awk '/SUM/ && /sender/{ print $6, $7 }')
       sleep 1 && overline && break
     else
       sleep 3 && overline
@@ -312,7 +312,7 @@ runiperf() {
     local vport=$(shuf -i $run_port -n 1)
     iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 -R)
     if [ "$?" -eq 0 ]; then
-      rec_speed=$(awk '/SUM/ && /receiver/{ print $6, $7 }' "$iperflog")
+      rec_speed=$(echo "$iperflog" | awk '/SUM/ && /receiver/{ print $6, $7 }')
       sleep 1 && overline && break
     else
       sleep 3 && overline
