@@ -45,6 +45,10 @@ overline() {
   printf "\r%s" "$(tput el)"
 }
 
+cleanup() {
+  tput cnorm
+}
+
 binarycheck() {
   # Building directory
   benchy_path=$HOME/.benchy_file
@@ -298,7 +302,7 @@ runiperf() {
   for (( i = 1; i < 5; i++ )); do
     printf "%s" "Performing iperf3 send test to $run_host (Attempt #$i of 5)"
     local vport=$(shuf -i $run_port -n 1)
-    iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6)
+    iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 2>/dev/null)
     if [ "$?" -eq 0 ]; then
       send_speed=$(echo "$iperflog" | awk '/SUM/ && /sender/{ print $6, $7 }')
       sleep 1 && overline && break
@@ -310,7 +314,7 @@ runiperf() {
   for (( i = 1; i < 5; i++ )); do
     printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$i of 5)"
     local vport=$(shuf -i $run_port -n 1)
-    iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 -R)
+    iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 -R 2>/dev/null)
     if [ "$?" -eq 0 ]; then
       rec_speed=$(echo "$iperflog" | awk '/SUM/ && /receiver/{ print $6, $7 }')
       sleep 1 && overline && break
@@ -383,6 +387,7 @@ parse_iperf() {
 }
 
 main() {
+  tput civis
   header_intro
   user_arch
   binarycheck
