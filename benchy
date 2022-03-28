@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Benchy V1.0
-# Heavily influenced by MasonR's Yet-Another-Bench-Script
+# Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 
 exec   > >(tee -ia $HOME/benchy.log)
@@ -20,6 +20,17 @@ header_intro() {
   echo -e "#       $currentDate       #"
   echo -e '# # # # # # # # # # # # # # # # # # #'
   echo
+}
+
+user_opt() {
+  OPTIND=1
+  while getopts 'tnd' arg; do
+    case "$arg" in
+      t) arg_temp_path="true";;
+      n) arg_no_iperf="true";;
+      d) arg_no_fio="true";;
+    esac
+  done
 }
 
 convertsize() {
@@ -236,6 +247,7 @@ disk_test() {
 }
 
 disk_check() {
+  [ "$arg_no_fio" = "true" ] && return 1
   # Check storage space eligibility
   disk_storage=$(df -k . | awk 'NR==2 { print $4 }')
   case "$arch" in
@@ -326,6 +338,7 @@ runiperf() {
 }
 
 parse_iperf() {
+  [ "$arg_no_iperf" = "true" ] && return 1
   iperflist
   case "$1" in
     *v4*)
@@ -367,7 +380,7 @@ parse_iperf() {
       printf "+%75s+\n" | tr ' ' '='
       echo "$ipv6_provider" |
       {
-        while read -r provider loc port url; do
+        while IFS='|' read -r provider loc port url; do
           runiperf $url $port $provider $iperf_flags
           case "$send_speed" in
             ""|*0.00*) send_speed="busy";;
@@ -389,20 +402,21 @@ parse_iperf() {
 
 main() {
   tput civis
+  user_opt
   header_intro
   user_arch
   binarycheck
   sysinfo
-  # if disk_check; then
-  #   # Disk check passed
-  #   if disk_test; then
-  #     # Disk test passed
-  #     output_disk_test
-  #   else
-  #     overline && printf "Disk test has failed\n"
-  #     exit 1
-  #   fi
-  # fi
+  if disk_check; then
+    # Disk check passed
+    if disk_test; then
+      # Disk test passed
+      output_disk_test
+    else
+      overline && printf "Disk test has failed\n"
+      exit 1
+    fi
+  fi
   parse_iperf ipv4 && echo
   parse_iperf ipv6 && echo
 }
