@@ -22,6 +22,17 @@ header_intro() {
   echo
 }
 
+display_help() {
+  cat <<'EOT'
+Usage: benchy [options]
+Options:
+  -t      Remove benchy dependencies after run (default: keep storing)
+  -n      Disable iperf3 network measurement test
+  -d      Disable fio disk benchmark test
+  -h      Display this help section
+EOT
+}
+
 user_opt() {
   OPTIND=1
   while getopts 'tnd' arg; do
@@ -29,6 +40,7 @@ user_opt() {
       t) arg_temp_path="true";;
       n) arg_no_iperf="true";;
       d) arg_no_fio="true";;
+      h) display_help;;
     esac
   done
 }
