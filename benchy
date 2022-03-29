@@ -10,10 +10,11 @@ exec 19> $HOME/benchy.log
 export BASH_XTRACEFD="19"
 set -x
 
+currentDate=$(date +"%d %b %Y %H:%M %Z")
+currentVersion="v1.0"
 header_intro() {
-  currentDate=$(date +"%d %b %Y %H:%M %Z")
   echo -e '# # # # # # # # # # # # # # # # # # #'
-  echo -e '#            Benchy v1.0            #'
+  echo -e "#            Benchy $currentVersion            #"
   echo -e '#   https://github.com/L1so/benchy  #'
   echo -e '#        AIO Benchmarking tool      #'
   echo -e '# # # # # # # # # # # # # # # # # # #'
@@ -21,29 +22,41 @@ header_intro() {
   echo -e '# # # # # # # # # # # # # # # # # # #'
   echo
 }
-
 display_help() {
   cat <<'EOT'
 Usage: benchy [options]
 Options:
-  -t      Remove benchy dependencies after run (default: keep storing)
-  -n      Disable iperf3 network measurement test
-  -d      Disable fio disk benchmark test
-  -h      Display this help section
+  -t, --temp-file         Remove benchy dependencies after run (default: keep storing)
+  -n, --skip-network      Skip iperf3 network measurement test
+  -d, --skip-disk         Skip fio disk benchmark test
+  -g, --skip-gb           Skip geekbench 5 test
+  -h, --help              Display this help section
 EOT
 }
-
-user_opt() {
-  OPTIND=1
-  while getopts 'tnd' arg; do
-    case "$arg" in
-      t) arg_temp_path="true";;
-      n) arg_no_iperf="true";;
-      d) arg_no_fio="true";;
-      h) display_help;;
+# BEGIN OPTION PARSING (source https://stackoverflow.com/a/62616466/12289283)
+usage_error () { printf "%s\n%s\n" "$1" "Try 'benchy --help' to view available option" >&2; exit 2; }
+endofline=$(echo '\01\03\03\07')
+if [ "$#" != 0 ]; then
+  set -- "$@" "$endofline"
+  while [ "$1" != "$endofline" ]; do
+    opt="$1"; shift
+    case "$opt" in
+      -t|--temp-file) arg_temp_file="true"; shift;;
+      -n|--skip-network) arg_skip_network="true"; shift;;
+      -d|--skip-disk) arg_skip_disk="true"; shift;;
+      -g|--skip-gb) arg_skip_gb="true"; shift;;
+      -h|--help) display_help; exit 0;;
+      -v|--version) printf "%s\n" "$currentVersion"; exit 0;;
+      -|''|[^-]*) set -- "$@" "$opt";;
+      -[^-]?*)    set -- $(echo "${opt#-}" | sed 's/\(.\)/ -\1/g') "$@";;
+      --)         while [ "$1" != "$endofline" ]; do set -- "$@" "$1"; shift; done;;
+      -*)         usage_error "Unknown option: '$opt'";;
+      *)          exit 2;;
     esac
   done
-}
+  shift
+fi
+# END OPTION PARSING
 
 convertsize() {
   local i=${1:-0} d="" s=0 S=("KiB" "MiB" "GiB" "TiB" "PiB" "EiB" "YiB" "ZiB")
@@ -79,6 +92,7 @@ binarycheck() {
   fio_path=$benchy_path/fio
   iperf_path=$benchy_path/iperf3
   screen_path=$benchy_path/screen
+  geekbench_path=$benchy_path/gb5
   bc_path=$benchy_path/bc
   country_code=$benchy_path/country.txt
   country_json=$benchy_path/country.json
@@ -98,6 +112,7 @@ binarycheck() {
     [ ! -d "$fio_path" ] && mkdir -p $fio_path
     [ ! -d "$iperf_path" ] && mkdir -p $iperf_path
     [ ! -d "$screen_path" ] && mkdir -p $screen_path
+    [ ! -d "$geekbench_path" ] && mkdir -p $geekbench_path
     [ ! -d "$bc_path" ] && mkdir -p $bc_path
     #printf "\r%s" "$(tput el)"
 
@@ -411,6 +426,11 @@ parse_iperf() {
       ;;
   esac
 }
+geekbench_test() {
+  # Skip geekbench on input argument
+  [ "$arg_no_gb5" = "true" ] && return 1
+
+}
 
 main() {
   tput civis
@@ -424,9 +444,6 @@ main() {
     if disk_test; then
       # Disk test passed
       output_disk_test
-    else
-      overline && printf "Disk test has failed\n"
-      exit 1
     fi
   fi
   parse_iperf ipv4 && echo
