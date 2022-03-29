@@ -92,7 +92,7 @@ binarycheck() {
   fio_path=$benchy_path/fio
   iperf_path=$benchy_path/iperf3
   screen_path=$benchy_path/screen
-  geekbench_path=$benchy_path/gb5
+  geekbench_path="${benchy_path}/gb${gb_version}"
   bc_path=$benchy_path/bc
   country_code=$benchy_path/country.txt
   country_json=$benchy_path/country.json
@@ -160,8 +160,20 @@ user_arch() {
   # Most commonly would be 64 bit
   arch=$(uname -m)
   case "$arch" in
-    *x86_64*) arch="x64"; fio_size="2G";;
-    *i?86*) arch="x86"; fio_size="2G";;
+    *x86_64*)
+    arch="x64"
+    fio_size="2G"
+    gb_version=5
+    gb_arch=$gb_version
+    gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.4-Linux.tar.gz"
+    ;;
+    *i?86*)
+    arch="x86"
+    fio_size="2G"
+    gb_version=4
+    gb_arch="x86_32"
+    gb_ddl_link="https://cdn.geekbench.com/Geekbench-4.3.3-Linux.tar.gz"
+    ;;
     *arm*|*aarch*)
     if [ "$(getconf LONG_BIT)" = *"64"* ]; then
       arch="aarch64"
@@ -169,6 +181,9 @@ user_arch() {
       arch="arm"
     fi
     fio_size="512M"
+    gb_version=5
+    gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.4-LinuxARMPreview.tar.gz"
+    gb_arch=$gb_version
     printf "ARM based device is not *officially supported*, use with caution.\n"
     ;;
     *) printf "Architecture not found\n"; exit 1;;
@@ -274,7 +289,7 @@ disk_test() {
 }
 
 disk_check() {
-  [ "$arg_no_fio" = "true" ] && return 1
+  [ "$arg_skip_disk" = "true" ] && return 1
   # Check storage space eligibility
   disk_storage=$(df -k . | awk 'NR==2 { print $4 }')
   case "$arch" in
@@ -365,7 +380,7 @@ runiperf() {
 }
 
 parse_iperf() {
-  [ "$arg_no_iperf" = "true" ] && return 1
+  [ "$arg_skip_network" = "true" ] && return 1
   iperflist
   case "$1" in
     *v4*)
@@ -428,8 +443,38 @@ parse_iperf() {
 }
 geekbench_test() {
   # Skip geekbench on input argument
-  [ "$arg_no_gb5" = "true" ] && return 1
-
+  [ "$arg_skip_gb" = "true" ] && return 1
+  if [ "$gb_version" -eq 5 ]; then
+    # Geekbench 5
+    if { printf "%s\n" "Downloading Geekbench 5, this may take a several minute..."; curl -LO --progress-bar $gb_ddl_link | tar xz --strip-components=1 -C $geekbench_path \
+    && printf "\r%s" "$(tput cuu 2 && tput ed)"; }; then
+      # Perform geekbench 5 test
+      printf "%s\n" "Initializing geekbench 5 test..."
+      gb_output=$($geekbench_path/geekbench${gb_arch} --upload 2>/dev/null)
+      gb_result=$(echo "$gb_output" | grep -m 1 "https://browser")
+      [ -n "$gb_result" ] && overline
+    fi
+  elif [ "$gb_version" -eq 4 ]; then
+    # Geekbench 4
+    if { printf "%s\n" "Downloading Geekbench 4, this may take a several minute..."; curl -LO --progress-bar $gb_ddl_link | tar xz --strip-components=1 -C $geekbench_path \
+    && printf "\r%s" "$(tput cuu 2 && tput ed)"; }; then
+      # Perform geekbench 5 test
+      printf "%s\n" "Initializing geekbench 4 test..."
+      gb_output=$($geekbench_path/geekbench_${gb_arch} --upload 2>/dev/null | grep -m 1 "https://browser")
+      [ -n "$gb_output" ] && overline
+    fi
+  fi
+  # Parsing result
+  gb_result=$(curl -Ls "$gb_output")
+  gb_single_core=$(echo "$gb_result" | awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' | awk 'FNR==1')
+  gb_multi_core=$(echo "$gb_result" | awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' | awk 'FNR==2')
+  printf "+%23s+\n" | tr ' ' '-'
+  printf "| %-12s | %-6s |\n" "Test" "Score"
+  printf "+%23s+\n" | tr ' ' '='
+  printf "| %-12s | %-6s |\n" "Single Core" "$gb_single_core"
+  printf "+%23s+\n" | tr ' ' '-'
+  printf "| %-12s | %-6s |\n" "Multi Core" "$gb_multi_core"
+  printf "+%23s+\n" | tr ' ' '-';
 }
 
 main() {
@@ -448,5 +493,6 @@ main() {
   fi
   parse_iperf ipv4 && echo
   parse_iperf ipv6 && echo
+  geekbench_test
 }
 main
