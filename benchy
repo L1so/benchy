@@ -450,7 +450,7 @@ geekbench_test() {
     && printf "\r%s" "$(tput cuu 2 && tput ed)"; }; then
       # Perform geekbench 5 test
       printf "%s\n" "Initializing geekbench 5 test..."
-      gb_output=$($geekbench_path/geekbench${gb_arch} --upload 2>/dev/null |  grep -m 1 "https://browser")
+      gb_output=$($geekbench_path/geekbench${gb_arch} --upload 2>/dev/null | grep -m 1 "https://browser")
       [ -n "$gb_output" ] && overline
     fi
   elif [ "$gb_version" -eq 4 ]; then
