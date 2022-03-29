@@ -478,7 +478,6 @@ geekbench_test() {
 
 main() {
   tput civis
-  user_opt
   header_intro
   user_arch
   binarycheck
