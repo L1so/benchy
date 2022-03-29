@@ -446,7 +446,7 @@ geekbench_test() {
   [ "$arg_skip_gb" = "true" ] && return 1
   if [ "$gb_version" -eq 5 ]; then
     # Geekbench 5
-    if { printf "%s\n" "Downloading Geekbench 5, this may take a several minute..."; curl -LO --progress-bar $gb_ddl_link | tar xz --strip-components=1 -C $geekbench_path \
+    if { printf "%s\n" "Downloading Geekbench 5, this may take a several minute..."; curl -L --progress-bar $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
     && printf "\r%s" "$(tput cuu 2 && tput ed)"; }; then
       # Perform geekbench 5 test
       printf "%s\n" "Initializing geekbench 5 test..."
@@ -455,25 +455,35 @@ geekbench_test() {
     fi
   elif [ "$gb_version" -eq 4 ]; then
     # Geekbench 4
-    if { printf "%s\n" "Downloading Geekbench 4, this may take a several minute..."; curl -LO --progress-bar $gb_ddl_link | tar xz --strip-components=1 -C $geekbench_path \
+    if { printf "%s\n" "Downloading Geekbench 4, this may take a several minute..."; curl -L --progress-bar $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
     && printf "\r%s" "$(tput cuu 2 && tput ed)"; }; then
       # Perform geekbench 5 test
       printf "%s\n" "Initializing geekbench 4 test..."
       gb_output=$($geekbench_path/geekbench_${gb_arch} --upload 2>/dev/null | grep -m 1 "https://browser")
-      [ -n "$gb_output" ] && overline
+      gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
+      gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
+      overline
     fi
   fi
   # Parsing result
-  gb_result=$(curl -Ls "$gb_output")
-  gb_single_core=$(echo "$gb_result" | awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' | awk 'FNR==1')
-  gb_multi_core=$(echo "$gb_result" | awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' | awk 'FNR==2')
-  printf "+%23s+\n" | tr ' ' '-'
-  printf "| %-12s | %-6s |\n" "Test" "Score"
-  printf "+%23s+\n" | tr ' ' '='
-  printf "| %-12s | %-6s |\n" "Single Core" "$gb_single_core"
-  printf "+%23s+\n" | tr ' ' '-'
-  printf "| %-12s | %-6s |\n" "Multi Core" "$gb_multi_core"
-  printf "+%23s+\n" | tr ' ' '-';
+  if [ -n "$gb_output" ]; then
+    gbfile="$benchy_path/temp_gb${gb_version}.log"
+    curl -kLs $gb_output -o "$gbfile"
+    gb_single_core=$(awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' $gbfile | awk 'FNR==1')
+    gb_multi_core=$(awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' $gbfile | awk 'FNR==2')
+    printf "Geekbench $gb_version test result\n"
+    printf "+%23s+\n" | tr ' ' '-'
+    printf "| %-12s | %-6s |\n" "Test" "Score"
+    printf "+%23s+\n" | tr ' ' '='
+    printf "| %-12s | %-6s |\n" "Single Core" "$gb_single_core"
+    printf "+%23s+\n" | tr ' ' '-'
+    printf "| %-12s | %-6s |\n" "Multi Core" "$gb_multi_core"
+    printf "+%23s+\n" | tr ' ' '-';
+    rm -f "$gbfile"
+  else
+    printf "%s\n" "Geekbench $gb_version run failed, please retry again"
+    return 1
+  fi
 }
 
 main() {
@@ -482,15 +492,15 @@ main() {
   user_arch
   binarycheck
   sysinfo
-  if disk_check; then
-    # Disk check passed
-    if disk_test; then
-      # Disk test passed
-      output_disk_test
-    fi
-  fi
-  parse_iperf ipv4 && echo
-  parse_iperf ipv6 && echo
+  # if disk_check; then
+  #   # Disk check passed
+  #   if disk_test; then
+  #     # Disk test passed
+  #     output_disk_test
+  #   fi
+  # fi
+  # parse_iperf ipv4 && echo
+  # parse_iperf ipv6 && echo
   geekbench_test
 }
 main
