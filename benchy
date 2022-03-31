@@ -41,10 +41,10 @@ if [ "$#" != 0 ]; then
   while [ "$1" != "$endofline" ]; do
     opt="$1"; shift
     case "$opt" in
-      -t|--temp-file) arg_temp_file="true"; shift;;
-      -n|--skip-network) arg_skip_network="true"; shift;;
-      -d|--skip-disk) arg_skip_disk="true"; shift;;
-      -g|--skip-gb) arg_skip_gb="true"; shift;;
+      -t|--temp-file) arg_temp_file="true";;
+      -n|--skip-network) arg_skip_network="true";;
+      -d|--skip-disk) arg_skip_disk="true";;
+      -g|--skip-gb) arg_skip_gb="true";;
       -h|--help) display_help; exit 0;;
       -v|--version) printf "%s\n" "$currentVersion"; exit 0;;
       -|''|[^-]*) set -- "$@" "$opt";;
@@ -86,6 +86,27 @@ cleanup() {
 }
 trap cleanup 0 2 3 15
 
+file_grabber() {
+  ddl_input="$1"
+  if [ "$filegrab" -eq 0 ]; then
+    case "$ddl_input" in
+      *cdn.geekbench.com*) _curl_opt="-kL --progress-bar";;
+      *ipv*) _curl_opt="-s --connect-timeout 1 --max-time 1";;
+      *) _curl_opt="-kLs --connect-timeout 5 --retry 5 --retry-delay 0 -o $2";;
+    esac
+    curl $_curl_opt $ddl_input
+  elif [ "$filegrab" -eq 1 ]; then
+    case "$ddl_input" in
+      *cdn.geekbench.com*)
+      { wget --help | grep -q '\--show-progress'; } && _wget_opt="-qO- --show-progress --progress=bar:force" || _wget_opt="-qO-"
+      ;;
+      *ipv*) _wget_opt="--timeout=1 --tries=1 --quiet";;
+      *) _wget_opt="-q -O $2";;
+    esac
+    wget $_wget_opt $ddl_input
+  fi
+}
+
 binarycheck() {
   # Building directory
   benchy_path=$HOME/.benchy_file
@@ -108,14 +129,11 @@ binarycheck() {
 
   # Prioritize curl over wget
   if command -v curl >/dev/null 2>&1; then
-    file_grabber="curl -kLs --connect-timeout 5 --retry 5 --retry-delay 0 $1 -o $2"
-    ipv_check="curl -s --connect-timeout 1 --max-time 1 $1"
-    gb_grabber="curl -kL --progress-bar $1"
+    # 0 Implies curl
+    filegrab=0
   elif command -v wget >/dev/null 2>&1; then
-    file_grabber="wget --no-check-certificate -q $1 -O $2"
-    ipv_check="wget --timeout=1 --tries=1 --no-check-certificate -q $1"
-    { wget --help | grep -q '\--show-progress'; } && _extra_opt="--show-progress --progress=bar:force" || _extra_opt=""
-    gb_grabber="wget $_extra_opt -qO- $1"
+    # 1 Implies wget
+    filegrab=1
   else
     printf "%s\n" "Neither wget nor curl is exist" "Please install it first" >&2
     exit 1
@@ -135,31 +153,31 @@ binarycheck() {
     # gitlink="https://github.com/L1so/benchy/raw/main/binary"
 
     # Country code
-    $file_grabber "ipinfo.io/country" $country_code
+    file_grabber "ipinfo.io/country" $country_code
     # Country.json
-    $file_grabber "https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw" $country_json
+    file_grabber "https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw" $country_json
 
     # Download fio if not exist
     if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
-      $file_grabber "https://www.dropbox.com/s/0ay9ftavvwzmapr/fio_${arch}" "$fio_path/fio"
+      file_grabber "https://www.dropbox.com/s/0ay9ftavvwzmapr/fio_${arch}" "$fio_path/fio"
       [ $? -eq 0 ] && chmod u+x $fio_path/fio
     fi
 
     # Download iperf3 if not exist
     if [ "$iperf" != "iperf3" ] && [ ! -f "$iperf_path/iperf3" ]; then
-      $file_grabber "https://www.dropbox.com/s/lsnmt9uvjghmksz/iperf3_${arch}" "$iperf_path/iperf3"
+      file_grabber "https://www.dropbox.com/s/lsnmt9uvjghmksz/iperf3_${arch}" "$iperf_path/iperf3"
       [ $? -eq 0 ] && chmod u+x $iperf_path/iperf3
     fi
 
     # Download screen if not exist
     if [ "$screen" != "screen" ] && [ ! -f "$screen_path/screen" ]; then
-      $file_grabber "https://www.dropbox.com/s/ysd46guir0bxi8g/screen_${arch}" "$screen_path/screen"
+      file_grabber "https://www.dropbox.com/s/ysd46guir0bxi8g/screen_${arch}" "$screen_path/screen"
       [ $? -eq 0 ] && chmod u+x $screen_path/screen
     fi
 
     # Download bc if not exist
     if [ "$bc" != "bc" ] && [ ! -f "$bc_path/bc" ]; then
-      $file_grabber "https://www.dropbox.com/s/bo51a1qnr881wvk/bc_${arch}" "$bc_path/bc"
+      file_grabber "https://www.dropbox.com/s/bo51a1qnr881wvk/bc_${arch}" "$bc_path/bc"
       [ $? -eq 0 ] && chmod u+x $bc_path/bc
     fi
     overline
@@ -211,9 +229,9 @@ sysinfo() {
   # Location
   local country=$(grep -Po '"'"$(cat $country_code)"'"\s*:\s*"\K([^"]*)' "$country_json")
   # IPv4 check
-  $ipv_check "ipv4.icanhazip.com" >/dev/null 2>&1 && ipv4_status="\xE2\x9C\x94 Enabled" || ipv4_status="\xE2\x9D\x8C Disabled"
+  file_grabber "ipv4.icanhazip.com" >/dev/null 2>&1 && ipv4_status="\xE2\x9C\x94 Enabled" || ipv4_status="\xE2\x9D\x8C Disabled"
   # IPv6 check
-  $ipv_check "ipv6.icanhazip.com" >/dev/null 2>&1 && ipv6_status="\xE2\x9C\x94 Enabled" || ipv6_status="\xE2\x9D\x8C Disabled"
+  file_grabber "ipv6.icanhazip.com" >/dev/null 2>&1 && ipv6_status="\xE2\x9C\x94 Enabled" || ipv6_status="\xE2\x9D\x8C Disabled"
 
   # Processor information
   local cpu_model=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
@@ -458,25 +476,24 @@ geekbench_test() {
   if [ "$gb_version" -eq 5 ]; then
     # Geekbench 5
     if [ ! -f "$geekbench_path/geekbench5" ]; then
-      printf "%s\n" "Downloading Geekbench 5, this may take a several minute..."
-      $gb_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
+      printf "%s" "Downloading Geekbench 5, this may take a several minute..."
+      file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
       && printf "\r%s" "$(tput cuu 2 && tput ed)"
     fi
     # Perform geekbench 5 test
-    printf "%s\n" "Initializing geekbench 5 test..."
-    gb_output=$($geekbench_path/geekbench_${gb_arch} --upload 2>/dev/null | grep -m 1 "https://browser")
-    [ -n "$gb_output" ] && overline
+    printf "%s" "Initializing geekbench 5 test..."
+    gb_output=$($geekbench_path/geekbench5 --upload 2>/dev/null | grep -m 1 "https://browser")
+    overline
   elif [ "$gb_version" -eq 4 ]; then
     # Geekbench 4
     if [ ! -f "$geekbench_path/geekbench4" ]; then
       printf "%s\n" "Downloading Geekbench 4, this may take a several minute..."
-      $gb_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
+      file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
       && printf "\r%s" "$(tput cuu 2 && tput ed)"
     fi
     # Perform geekbench 4 test
-    printf "%s\n" "Initializing geekbench 4 test..."
+    printf "%s" "Initializing geekbench 4 test..."
     gb_output=$($geekbench_path/geekbench_${gb_arch} --upload 2>/dev/null | grep -m 1 "https://browser")
-    [ -n "$gb_output" ] && overline
     overline
   fi
   # Parsing result
@@ -484,7 +501,7 @@ geekbench_test() {
     gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
     gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
     gbfile="$benchy_path/temp_gb${gb_version}.log"
-    $file_grabber $gb_output $gbfile
+    file_grabber $gb_output $gbfile
     gb_single_core=$(awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' $gbfile | awk 'FNR==1')
     gb_multi_core=$(awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' $gbfile | awk 'FNR==2')
     printf "Geekbench $gb_version test result\n"
@@ -508,15 +525,15 @@ main() {
   user_arch
   binarycheck
   sysinfo
-  # if disk_check; then
-  #   # Disk check passed
-  #   if disk_test; then
-  #     # Disk test passed
-  #     output_disk_test
-  #   fi
-  # fi
-  # parse_iperf ipv4 && echo
-  # parse_iperf ipv6 && echo
+  if disk_check; then
+    # Disk check passed
+    if disk_test; then
+      # Disk test passed
+      output_disk_test
+    fi
+  fi
+  parse_iperf ipv4 && echo
+  parse_iperf ipv6 && echo
   geekbench_test
 }
 main
