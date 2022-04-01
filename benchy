@@ -31,6 +31,7 @@ Options:
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
   -h, --help              Display this help section
+  -v, --version           Display version
 EOT
 }
 # BEGIN OPTION PARSING (source https://stackoverflow.com/a/62616466/12289283)
@@ -104,6 +105,14 @@ file_grabber() {
       *) _wget_opt="-q -O $2";;
     esac
     wget $_wget_opt $ddl_input
+  fi
+}
+
+gb_string() {
+  if [ "$gb_version" -eq 5 ]; then
+    awk "/<div class='platform'>/{f=1;next} /<\/div>/{f=0} f" "$1"
+  else
+    grep "<td colspan='2'" "$1" | awk -F[\<\>] '{print $3}'
   fi
 }
 
@@ -483,6 +492,7 @@ geekbench_test() {
     # Perform geekbench 5 test
     printf "%s" "Initializing geekbench 5 test..."
     gb_output=$($geekbench_path/geekbench5 --upload 2>/dev/null | grep -m 1 "https://browser")
+    gb_var="div"
     overline
   elif [ "$gb_version" -eq 4 ]; then
     # Geekbench 4
@@ -494,6 +504,7 @@ geekbench_test() {
     # Perform geekbench 4 test
     printf "%s" "Initializing geekbench 4 test..."
     gb_output=$($geekbench_path/geekbench_${gb_arch} --upload 2>/dev/null | grep -m 1 "https://browser")
+    gb_var="span"
     overline
   fi
   # Parsing result
@@ -502,16 +513,20 @@ geekbench_test() {
     gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
     gbfile="$benchy_path/temp_gb${gb_version}.log"
     file_grabber $gb_output $gbfile
-    gb_single_core=$(awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' $gbfile | awk 'FNR==1')
-    gb_multi_core=$(awk -F'<div[^>]*>(<d>)?|(</?d>)?</div>' '$2~/[0-9]/{print $2}' $gbfile | awk 'FNR==2')
-    printf "Geekbench $gb_version test result\n"
-    printf "+%23s+\n" | tr ' ' '-'
-    printf "| %-12s | %-6s |\n" "Test" "Score"
-    printf "+%23s+\n" | tr ' ' '='
-    printf "| %-12s | %-6s |\n" "Single Core" "$gb_single_core"
-    printf "+%23s+\n" | tr ' ' '-'
-    printf "| %-12s | %-6s |\n" "Multi Core" "$gb_multi_core"
-    printf "+%23s+\n" | tr ' ' '-';
+    gb_single_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==1')
+    gb_multi_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==2')
+    gb_string=$(gb_string "$gbfile")
+    printf "+%47s+\n" | tr ' ' '-'
+    printf "| %-32s |\n" "$gb_string"
+    printf "+%47s+\n" | tr ' ' '='
+    printf "| %-25s | %-17s |\n" "Type of Test" "Score"
+    printf "+%47s+\n" | tr ' ' '='
+    printf "| %-25s | %-17s |\n" "Single Core" "$gb_single_core"
+    printf "+%47s+\n" | tr ' ' '-'
+    printf "| %-25s | %-17s |\n" "Multi Core" "$gb_multi_core"
+    printf "+%47s+\n" | tr ' ' '-'
+    printf "| %-32s |\n" "$gb_output"
+    printf "+%47s+\n" | tr ' ' '-'
     rm -f "$gbfile"
   else
     printf "%s\n" "Geekbench $gb_version run failed, please retry again"
@@ -535,5 +550,6 @@ main() {
   parse_iperf ipv4 && echo
   parse_iperf ipv6 && echo
   geekbench_test
+  [ "$arg_temp_file" = "true" ] && rm -fr -- "$benchy_path"
 }
 main
