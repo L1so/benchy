@@ -110,9 +110,9 @@ file_grabber() {
 
 gb_string() {
   if [ "$gb_version" -eq 5 ]; then
-    awk "/<div class='platform'>/{f=1;next} /<\/div>/{f=0} f" "$1"
+    awk 'f{if ($0=="</div>") exit; print} $0=="<div class=\047platform\047>"{f=1}' "$1"
   else
-    grep "<td colspan='2'" "$1" | awk -F[\<\>] '{print $3}'
+    awk -F[\<\>] '/colspan=\0472\047/{ print $3 }' "$1"
   fi
 }
 
