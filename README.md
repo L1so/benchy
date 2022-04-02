@@ -23,11 +23,17 @@ This section covers various Linux Distribution supported by benchy, each test co
 | Distribution | Minimal Version |
 | --- | --- |
 | Ubuntu | 14.04 |
-| CentOS | 6 |
+|Debian|7|
+| CentOS | 7 |
 | RockyLinux |8 |
 |Alma Linux|8.3|
 |Alpine|3.2|
-|RHEL|6|
+|Fedora|6|
+|Arch Linux|5|
+
+Benchy **may** also works on other distribution than previously stated. Be sure to report any issues that you found.
+
+## Example Output
 
 This is sample output of benchy in action:
 ```
