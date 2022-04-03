@@ -1,27 +1,23 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Benchy V1.0
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
+# shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
 
-exec   > >(tee -ia $HOME/benchy.log)
-exec  2> >(tee -ia $HOME/benchy.log >& 2)
-exec 19> $HOME/benchy.log
-
-export BASH_XTRACEFD="19"
-set -x
-
-currentDate=$(date +"%d %b %Y %H:%M %Z")
+export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
 currentVersion="v1.0"
 header_intro() {
-  echo -e '# # # # # # # # # # # # # # # # # # #'
-  echo -e "#            Benchy $currentVersion            #"
-  echo -e '#   https://github.com/L1so/benchy  #'
-  echo -e '#        AIO Benchmarking tool      #'
-  echo -e '# # # # # # # # # # # # # # # # # # #'
-  echo -e "#       $currentDate       #"
-  echo -e '# # # # # # # # # # # # # # # # # # #'
+  currentDate=$(date +"%d %b %Y %H:%M %Z")
+  echo '# # # # # # # # # # # # # # # # # # #'
+  echo "#            Benchy $currentVersion            #"
+  echo '#   https://github.com/L1so/benchy  #'
+  echo '#        AIO Benchmarking tool      #'
+  echo '# # # # # # # # # # # # # # # # # # #'
+  echo "#       $currentDate       #"
+  echo '# # # # # # # # # # # # # # # # # # #'
   echo
 }
+
 display_help() {
   cat <<'EOT'
 Usage: benchy [options]
@@ -48,8 +44,8 @@ if [ "$#" != 0 ]; then
       -g|--skip-gb) arg_skip_gb="true";;
       -h|--help) display_help; exit 0;;
       -v|--version) printf "%s\n" "$currentVersion"; exit 0;;
-      -|''|[^-]*) set -- "$@" "$opt";;
-      -[^-]?*)    set -- $(echo "${opt#-}" | sed 's/\(.\)/ -\1/g') "$@";;
+      -|''|[!-]*) set -- "$@" "$opt";;
+      -[!-]?*)    set -- $(echo "${opt#-}" | sed 's/\(.\)/ -\1/g') "$@";;
       --)         while [ "$1" != "$endofline" ]; do set -- "$@" "$1"; shift; done;;
       -*)         usage_error "Unknown option: '$opt'";;
       *)          exit 2;;
@@ -59,23 +55,33 @@ if [ "$#" != 0 ]; then
 fi
 # END OPTION PARSING
 
+# Source https://gist.github.com/Akianonymus/25cfa570cb66821ab61846ceb0f9ca07
 convertsize() {
-  local i=${1:-0} d="" s=0 S=("KiB" "MiB" "GiB" "TiB" "PiB" "EiB" "YiB" "ZiB")
-  while ((i > 1024 && s < ${#S[@]}-1)); do
-      printf -v d ".%02d" $((i % 1024 * 100 / 1024))
-      i=$((i / 1024))
-      s=$((s + 1))
-  done
-  echo "$i$d ${S[$s]}"
+    in=$(printf "%s" ${1:-0} | tr -d -c 0-9) sn=0
+    dn='' typen=''
+    while [ "${in}" -gt 1024 ]; do
+        dn="$(printf ".%02d" $((in % 1024 * 100 / 1024)))"
+        in=$((in / 1024)) && sn=$((sn += 1))
+    done
+    j=0 && for i in KiB MiB GiB TiB PiB EiB YiB ZiB; do
+        j="$((j += 1))" && [ "$((j - 1))" = "${sn}" ] && typen="${i}" && break
+        continue
+    done
+    printf "%s\n" "${in}${dn} ${typen}"
 }
+
 format_disk() {
-  local i=${1:-0} d="" s=0 S=("KB/s" "MB/s" "GB/s")
-  while ((i > 1000 && s < ${#S[@]}-1)); do
-      printf -v d ".%02d" $((i % 1000 * 100 / 1000))
-      i=$((i / 1000))
-      s=$((s + 1))
-  done
-  echo "$i$d ${S[$s]}"
+    b_formatdisk=$(printf "%s" ${1:-0} | tr -d -c 0-9) s_formatdisk=0
+    d_formatdisk='' type_formatdisk=''
+    while [ "${b_formatdisk}" -gt 1024 ]; do
+        d_formatdisk="$(printf ".%02d" $((b_formatdisk % 1024 * 100 / 1024)))"
+        b_formatdisk=$((b_formatdisk / 1024)) && s_formatdisk=$((s_formatdisk += 1))
+    done
+    j=0 && for i in KB/s MB/s GB/s; do
+        j="$((j += 1))" && [ "$((j - 1))" = "${s_formatdisk}" ] && type_formatdisk="${i}" && break
+        continue
+    done
+    printf "%s\n" "${b_formatdisk}${d_formatdisk} ${type_formatdisk}"
 }
 
 overline() {
@@ -213,11 +219,10 @@ user_arch() {
     gb_ddl_link="https://cdn.geekbench.com/Geekbench-4.3.3-Linux.tar.gz"
     ;;
     *arm*|*aarch*)
-    if [ "$(getconf LONG_BIT)" = *"64"* ]; then
-      arch="aarch64"
-    else
-      arch="arm"
-    fi
+    case "$(getconf LONG_BIT)" in
+      *64*) arch="aarch64";;
+      *) arch="arm";;
+    esac
     fio_size="512M"
     gb_version=5
     gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.4-LinuxARMPreview.tar.gz"
@@ -231,49 +236,51 @@ user_arch() {
 sysinfo() {
   # System Information
   # OS
-  . "/etc/lsb-release"
-  local currentOS="${DISTRIB_DESCRIPTION}"
+  . "/etc/os-release"
+  currentOS="${PRETTY_NAME}"
+  checkmark=$(printf '\342\234\224')
+  crossmark=$(printf '\342\235\214')
   # Uptime
-  local uptime_now=$(awk '{print int($1/86400)" Days, "int($1%86400/3600)" Hours, "int(($1%3600)/60)" Minute, "int($1%60)" Seconds "}' /proc/uptime)
+  uptime_now=$(awk '{print int($1/86400)" Days, "int($1%86400/3600)" Hours, "int(($1%3600)/60)" Minute, "int($1%60)" Seconds "}' /proc/uptime)
   # Location
-  local country=$(grep -Po '"'"$(cat $country_code)"'"\s*:\s*"\K([^"]*)' "$country_json")
+  country=$(grep -Po '"'"$(cat $country_code)"'"\s*:\s*"\K([^"]*)' "$country_json")
   # IPv4 check
-  file_grabber "ipv4.icanhazip.com" >/dev/null 2>&1 && ipv4_status="\xE2\x9C\x94 Enabled" || ipv4_status="\xE2\x9D\x8C Disabled"
+  file_grabber "ipv4.icanhazip.com" >/dev/null 2>&1 && ipv4_status="$checkmark Enabled" || ipv4_status="$crossmark Disabled"
   # IPv6 check
-  file_grabber "ipv6.icanhazip.com" >/dev/null 2>&1 && ipv6_status="\xE2\x9C\x94 Enabled" || ipv6_status="\xE2\x9D\x8C Disabled"
+  file_grabber "ipv6.icanhazip.com" >/dev/null 2>&1 && ipv6_status="$checkmark Enabled" || ipv6_status="$crossmark Disabled"
 
   # Processor information
-  local cpu_model=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
-  local cpu_core=$(awk -F: '/model name/ {core++} END {print core}' /proc/cpuinfo)
-  local cpu_freq=$(awk -F: ' /cpu MHz/ {freq=$2} END {print freq " MHz"}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
-  grep -q -m 1 aes /proc/cpuinfo && local cpu_aes="\xE2\x9C\x94 Enabled" || local cpu_aes="\xE2\x9D\x8C Disabled"
-  grep -q -m 1 'vmx\|svm' /proc/cpuinfo && local cpu_virt="\xE2\x9C\x94 Enabled" || local cpu_virt="\xE2\x9D\x8C Disabled"
-  local virt_type=$(hostnamectl | grep -oP '(?<=Virtualization: ).*')
-  local virt_type="${virt_type:-No virt detected}"
+  cpu_model=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
+  cpu_core=$(awk -F: '/model name/ {core++} END {print core}' /proc/cpuinfo)
+  cpu_freq=$(awk -F: ' /cpu MHz/ {freq=$2} END {print freq " MHz"}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
+  grep -q -m 1 aes /proc/cpuinfo && cpu_aes="$checkmark Enabled" || cpu_aes="$crossmark Disabled"
+  grep -q -m 1 'vmx\|svm' /proc/cpuinfo && cpu_virt="$checkmark Enabled" || cpu_virt="$crossmark Disabled"
+  virt_type=$(hostnamectl | grep -oP '(?<=Virtualization: ).*')
+  virt_type="${virt_type:-No virt detected}"
 
   # Disk & Memory Usage
-  local df_output=$(df -t simfs -t ext2 -t ext3 -t ext4 -t btrfs -t xfs -t vfat -t ntfs -t swap)
-  local disk_info=$(convertsize $(echo "$df_output" | awk 'NR==2{ print $2 }'))
-  local disk_usage=$(convertsize $(echo "$df_output" | awk 'NR==2{ print $3 }'))
-  local disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
+  df_output=$(df -t simfs -t ext2 -t ext3 -t ext4 -t btrfs -t xfs -t vfat -t ntfs -t swap)
+  disk_info=$(convertsize "$(echo "$df_output" | awk 'NR==2{ print $2 }')")
+  disk_usage=$(convertsize "$(echo "$df_output" | awk 'NR==2{ print $3 }')")
+  disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
 
-  local mem_info=$(convertsize $(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo))
-  local mem_usage=$(free -m | awk 'NR==2{printf "%s MB (%.0f%% Used)\n", $3,$3*100/$2 }')
-  local swap_info=$(convertsize $(free | awk '/Swap/ {print $2}'))
+  mem_info=$(convertsize "$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo)")
+  mem_usage=$(free -m | awk 'NR==2{printf "%s MB (%.0f%% Used)\n", $3,$3*100/$2 }')
+  swap_info=$(convertsize "$(free | awk '/Swap/ {print $2}')")
 
   # Printing the output: System Information
-  printf "System Information\n"; printf '%.1s' -{1..21} $'\n'
-  printf "%-11s : %-10b\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "IPv4" "$ipv4_status" "IPv6" "$ipv6_status"
-  echo -e
+  printf "System Information\n"; printf "%21s\n" | tr ' ' '-'
+  printf "%-11s : %-10s\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "IPv4" "$ipv4_status" "IPv6" "$ipv6_status"
+  echo
 
   # Printing the output: Processor Information
-  printf "Processor Information\n"; printf '%.1s' -{1..21} $'\n'
-  printf "%-11s : %-10b\n" "Model" "$cpu_model" "Core" "$cpu_core @ $cpu_freq" "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
-  echo -e
+  printf "Processor Information\n"; printf "%21s\n" | tr ' ' '-'
+  printf "%-11s : %-10s\n" "Model" "$cpu_model" "Core" "$cpu_core @ $cpu_freq" "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
+  echo
 
   # Printing the output: Disk & Memory Usage
-  printf "Disk & Memory Usage\n"; printf '%.1s' -{1..21} $'\n'
-  printf "%-11s : %-10b\n" "Disk" "$disk_info" "Disk Usage" "$disk_usage ($disk_percentage Used)" "Mem" "$mem_info" \
+  printf "Disk & Memory Usage\n"; printf "%21s\n" | tr ' ' '-'
+  printf "%-11s : %-10s\n" "Disk" "$disk_info" "Disk Usage" "$disk_usage ($disk_percentage Used)" "Mem" "$mem_info" \
   "Mem Usage" "$mem_usage" "Swap" "$swap_info"
   echo
 }
@@ -283,9 +290,9 @@ disk_test() {
   --direct=1 --minimal >/dev/null 2>&1
   overline
 
-  # Run fio on each block size enclosed in array
-  block_sizes=( "4k" "64k" "512k" "1m" )
-  for bs in "${block_sizes[@]}"; do
+  # Run fio on each block size
+  set -- "4k" "64k" "512k" "1m"
+  for bs; do
     # Iterate over each defined block_size from array
     printf "%s" "Running fio R+W sampling on $bs block size..."
     fioutput=$(
@@ -306,7 +313,7 @@ disk_test() {
     --minimal 2> /dev/null
     )
     [ "$?" -ne 0 ] && \
-    fio_result+=( "Failed" "To" "Bench" "Disk" "Please" "Retry" ) && \
+    fio_result="${fio_result}1|Failed|To|Bench|Disk|Please|Retry#" && \
     continue
 
     fio_iops_read=$(echo "$fioutput" | cut -d';' -f8)
@@ -317,13 +324,18 @@ disk_test() {
 
     fio_test_read=$(echo "$fioutput" | cut -d';' -f7)
     fio_test_write=$(echo "$fioutput" | cut -d';' -f48)
-    fio_test=$(format_disk $(echo "($fio_test_read + $fio_test_write)" | $bc))
+    fio_test=$(format_disk "$(echo "($fio_test_read + $fio_test_write)" | $bc)")
     fio_test_read=$(format_disk $fio_test_read)
     fio_test_write=$(format_disk $fio_test_write)
 
-    fio_result+=( "$fio_test_read" "$fio_test_write" "$fio_test" "$fio_iops_read" "$fio_iops_write" "$fio_iops" )
+    fio_result_temp="$bs|$fio_test_read|$fio_test_write|$fio_test|$fio_iops_read|$fio_iops_write|$fio_iops#"
+    fio_result="${fio_result}${fio_result_temp}"
     overline
   done
+  # Remove trailing hashtag
+  fio_result="${fio_result%#}"
+  # Convert to newline
+  fio_result=$(printf %s "$fio_result" | tr '#' '\n')
 }
 
 disk_check() {
@@ -351,18 +363,14 @@ output_disk_test() {
   printf "+%75s+\n" | tr ' ' '-'
   printf "| %-3s | %-11s | %-11s | %-11s | %18s %7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
   printf "+%75s+\n" | tr ' ' '='
-  # 4k
-  printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "4k" "${fio_result[0]}" "${fio_result[1]}" "${fio_result[2]}" "${fio_result[3]}" "${fio_result[4]}" "${fio_result[5]}"
-  printf "+%75s+\n" | tr ' ' '-'
-  # 64k
-  printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "64k" "${fio_result[6]}" "${fio_result[7]}" "${fio_result[8]}" "${fio_result[9]}" "${fio_result[10]}" "${fio_result[11]}"
-  printf "+%75s+\n" | tr ' ' '-'
-  # 512k
-  printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "512k" "${fio_result[12]}" "${fio_result[13]}" "${fio_result[14]}" "${fio_result[15]}" "${fio_result[16]}" "${fio_result[17]}"
-  printf "+%75s+\n" | tr ' ' '-'
-  # 1M
-  printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "1m" "${fio_result[18]}" "${fio_result[19]}" "${fio_result[20]}" "${fio_result[21]}" "${fio_result[22]}" "${fio_result[23]}"
-  printf "+%75s+\n" | tr ' ' '-'
+  echo "$fio_result" |
+  {
+    while IFS='|' read -r blocksize read write total read_iops write_iops total_iops; do
+      # Loop over variable
+      printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
+      printf "+%75s+\n" | tr ' ' '-'
+    done
+  }
   echo
 }
 
@@ -385,16 +393,16 @@ EOF
 
 runiperf() {
   # Define argument
-  local run_url="$1"
-  local run_port="$2"
-  local run_host="$3"
-  local run_flags="$4"
-  local iperflog
+  run_url="$1"
+  run_port="$2"
+  run_host="$3"
+  run_flags="$4"
 
   # Send test 5 times
-  for (( i = 1; i <= 5; i++ )); do
-    printf "%s" "Performing iperf3 send test to $run_host (Attempt #$i of 5)"
-    local vport=$(shuf -i $run_port -n 1)
+  sn=1
+  while [ $sn -le 5 ]; do
+    printf "%s" "Performing iperf3 send test to $run_host (Attempt #$sn of 5)"
+    vport=$(shuf -i $run_port -n 1)
     iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 2>/dev/null)
     if [ "$?" -eq 0 ]; then
       send_speed=$(echo "$iperflog" | awk '/SUM/ && /sender/{ print $6, $7 }')
@@ -402,11 +410,13 @@ runiperf() {
     else
       sleep 3 && overline
     fi
+    sn=$(( sn + 1 ))
   done
   # Receive test 5 times
-  for (( i = 1; i <= 5; i++ )); do
-    printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$i of 5)"
-    local vport=$(shuf -i $run_port -n 1)
+  rn=1
+  while [ $rn -le 5 ]; do
+    printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$rn of 5)"
+    vport=$(shuf -i $run_port -n 1)
     iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 -R 2>/dev/null)
     if [ "$?" -eq 0 ]; then
       rec_speed=$(echo "$iperflog" | awk '/SUM/ && /receiver/{ print $6, $7 }')
@@ -414,6 +424,7 @@ runiperf() {
     else
       sleep 3 && overline
     fi
+    rn=$(( rn + 1 ))
   done
 }
 
@@ -425,7 +436,7 @@ parse_iperf() {
     # Internet Protocol Version 4 (IPv4) test
     case "$ipv4_status" in
       *Enabled*)
-      local iperf_flags="-4"
+      iperf_flags="-4"
       printf "Network Performance Test (IPv4):\n"
       printf "+%75s+\n" | tr ' ' '-'
       printf "| %-12s | %-22s | %-15s | %-15s |\n" "Provider" "Location" "Send" "Receive"
@@ -453,7 +464,7 @@ parse_iperf() {
     # Internet Protocol Version 6 (IPv6) test
     case "$ipv6_status" in
       *Enabled*)
-      local iperf_flags="-6"
+      iperf_flags="-6"
       printf "Network Performance Test (IPv6):\n"
       printf "+%75s+\n" | tr ' ' '-'
       printf "| %-12s | %-22s | %-15s | %-15s |\n" "Provider" "Location" "Send" "Receive"
