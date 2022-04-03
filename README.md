@@ -15,7 +15,13 @@ Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.co
 * IPv6 Check
 * Server Geolocation
 * Server Uptime
-* Fallback to `wget` if `curl` is not installed (this applied to Debian based system, where `curl` is not installed by default) 
+* Fallback to `wget` if `curl` is not installed (this applied to Debian based system, where `curl` is not installed by default)
+* Benchy is [POSIX](https://pubs.opengroup.org/onlinepubs/9699919799.2018edition/) compliant, meaning in theory it should work on all platform that enforce POSIX. <sub>See [Portability](https://github.com/L1so/benchy#portability)</sub>
+
+## Portability
+As of [fca1b99](https://github.com/L1so/benchy/commit/fca1b99b8fabeb563a8e6a628b82b4634e03b0f8), I have removed all [bashism](https://mywiki.wooledge.org/Bashism) from Benchy code and replace them with their POSIX counterpart. This of course to ensure portability between different kind of shells.
+
+Thus, benchy should work on all POSIX shells (e.g. `dash`, `ksh`, `zsh`, `mksh`, `ash`). Though I only have tested and confirm working on `dash` and `ksh`.
 
 ## Requirement
 This section covers various Linux Distribution supported by benchy, each test conducted on clean LXC container.
