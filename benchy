@@ -1,11 +1,11 @@
 #!/bin/sh
-# Benchy V1.0
+# Benchy V1.1
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
 
 export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
-currentVersion="v1.0"
+currentVersion="v1.1"
 header_intro() {
   currentDate=$(date +"%d %b %Y %H:%M %Z")
   echo '# # # # # # # # # # # # # # # # # # #'
@@ -350,8 +350,8 @@ disk_check() {
      fi
      ;;
      *)
-     if [ "$disk_storage" -lt "2097152" ]; then
-       printf "Your disk space is less than 2 GB. Will pass the disk test...\n"
+     if [ "$disk_storage" -lt "2612000" ]; then
+       printf "Your disk space is less than 2.6 GB. Will pass the disk test...\n"
        return 1
      fi
      ;;
