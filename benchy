@@ -3,8 +3,8 @@
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-
-export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
+# tput binary
+! command -v tput >/dev/null 2>&1 && printf "%s" "please install ncurses" && exit 1
 currentVersion="v1.1"
 header_intro() {
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -105,12 +105,49 @@ file_grabber() {
   elif [ "$filegrab" -eq 1 ]; then
     case "$ddl_input" in
       *cdn.geekbench.com*)
-      { wget --help | grep -q '\--show-progress'; } && _wget_opt="-qO- --show-progress --progress=bar:force" || _wget_opt="-qO-"
+      { wget --help 2>&1 | grep -q -- '--show-progress'; } && _wget_opt="-qO- --show-progress --progress=bar:force" || _wget_opt="-qO-"
       ;;
       *ipv*) _wget_opt="--timeout=1 --tries=1 --quiet";;
       *) _wget_opt="-q -O $2";;
     esac
     wget $_wget_opt $ddl_input
+  fi
+}
+print_virtualization() {
+  if command -v systemd-detect-virt >/dev/null 2>&1; then
+    user_virt=$(systemd-detect-virt)
+    if [ $? -eq 0 ]; then
+      case "$user_virt" in
+        *[Kk][Vv][Mm]*) echo "kvm"; return 0;;
+        *[Oo]pen[Vv][Zz]*) echo "openvz"; return 0;;
+        *[Ll][Xx][Cc]*) echo "lxc"; return 0;;
+        *) echo "none"
+      esac
+    fi
+  fi
+  if command -v dmidecode >/dev/null 2>&1; then
+    user_virt=$(dmidecode -s system-product-name 2>/dev/null)
+    if [ $? -eq 0 ]; then
+      case "$user_virt" in
+        *[Kk][Vv][Mm]*) echo "kvm"; return 0;;
+        *[Oo]pen[Vv][Zz]*) echo "openvz"; return 0;;
+        *[Ll][Xx][Cc]*) echo "lxc"; return 0;;
+        *) echo "none"
+      esac
+    fi
+  fi
+  # Fallback to manual test if none of the above working
+  # Qemu test
+  if ls -1 /dev/disk/by-id 2>/dev/null | grep -qiF qemu; then
+    echo "qemu" && return 0
+  fi
+  # lxc test
+  if grep -q lxc /proc/1/environ; then
+    echo "lxc" && return 0
+  fi
+  # openvz test
+  if [ -d "/proc/vz" ] && ! [ -d "/proc/bc" ]; then
+    echo "openvz" && return 0
   fi
 }
 
@@ -243,7 +280,7 @@ sysinfo() {
   # Uptime
   uptime_now=$(awk '{print int($1/86400)" Days, "int($1%86400/3600)" Hours, "int(($1%3600)/60)" Minute, "int($1%60)" Seconds "}' /proc/uptime)
   # Location
-  country=$(grep -Po '"'"$(cat $country_code)"'"\s*:\s*"\K([^"]*)' "$country_json")
+  country=$(grep -o '"'"$(cat $country_code)"'": *"[^"]*' "$country_json" | grep -o '[^"]*$')
   # IPv4 check
   file_grabber "ipv4.icanhazip.com" >/dev/null 2>&1 && ipv4_status="$checkmark Enabled" || ipv4_status="$crossmark Disabled"
   # IPv6 check
@@ -255,11 +292,11 @@ sysinfo() {
   cpu_freq=$(awk -F: ' /cpu MHz/ {freq=$2} END {print freq " MHz"}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
   grep -q -m 1 aes /proc/cpuinfo && cpu_aes="$checkmark Enabled" || cpu_aes="$crossmark Disabled"
   grep -q -m 1 'vmx\|svm' /proc/cpuinfo && cpu_virt="$checkmark Enabled" || cpu_virt="$crossmark Disabled"
-  virt_type=$(hostnamectl | grep -oP '(?<=Virtualization: ).*')
-  virt_type="${virt_type:-No virt detected}"
+  virt_type="$(print_virtualization)"
+  virt_type="${virt_type:-none}"
 
   # Disk & Memory Usage
-  df_output=$(df -t simfs -t ext2 -t ext3 -t ext4 -t btrfs -t xfs -t vfat -t ntfs -t swap)
+  df_output=$(df -k /)
   disk_info=$(convertsize "$(echo "$df_output" | awk 'NR==2{ print $2 }')")
   disk_usage=$(convertsize "$(echo "$df_output" | awk 'NR==2{ print $3 }')")
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
@@ -493,6 +530,10 @@ parse_iperf() {
 geekbench_test() {
   # Skip geekbench on input argument
   [ "$arg_skip_gb" = "true" ] && return 1
+  # Exit if ipv6 only
+  case "$ipv4_status" in
+    *Disabled*) printf "%s\n" "Geekbench doesn't work over ipv6, exiting test.." && return 1;;
+  esac
   if [ "$gb_version" -eq 5 ]; then
     # Geekbench 5
     if [ ! -f "$geekbench_path/geekbench5" ]; then
@@ -546,6 +587,7 @@ geekbench_test() {
 }
 
 main() {
+  command -v locale >/dev/null 2>&1 && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
   tput civis
   header_intro
   user_arch

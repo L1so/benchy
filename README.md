@@ -26,19 +26,27 @@ Thus, benchy should work on all POSIX shells (e.g. `dash`, `ksh`, `zsh`, `mksh`,
 ## Requirement
 This section covers various Linux Distribution supported by benchy, each test conducted on clean LXC container.
 
-| Distribution | Minimal Version |
-| --- | --- |
-| Ubuntu | 14.04 |
-|Debian|7|
-| CentOS | 7 |
-| RockyLinux |8 |
-|Alma Linux|8.3|
-|Alpine|3.2|
-|Fedora|6|
-|Arch Linux|5|
+| Distribution | Minimal Version |Is it working?|
+| --- | --- |---|
+| Ubuntu | 14.04 |Yes|
+|Debian|7|Yes|
+| CentOS | 7 |Yes|
+| RockyLinux |8 |Yes|
+|Alma Linux|8.3|Yes|
+|Alpine Linux |3.11|Yes <sub><sup>With [note](https://github.com/L1so/benchy#alpine-linux)</sup></sub>|
+|Fedora|6|Yes|
 
 Benchy **may** also works on other distribution than previously stated. Be sure to report any issues that you found.
 
+## Alpine Linux
+While most Linux distribution uses glibc, Alpine Linux implement [musl libc](https://musl.libc.org/) in its system, thus making precompiled binaries I have prepared not working as it is not compatible with musl libc.
+
+Until I have found a way to correctly create a precompiled binaries that works across library, Alpine Linux user are advised to install three core package of benchy.
+
+	apk add ncurses # tput
+	apk add fio # fio
+	apk add iperf3 # iperf3
+Also I have confirmed that geekbench **does not work** with alpine, once again this is due to incompatible c library.
 ## Example Output
 
 This is sample output of benchy in action:
