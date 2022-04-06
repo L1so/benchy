@@ -169,7 +169,6 @@ binarycheck() {
   benchy_path=$HOME/.benchy_file
   fio_path=$benchy_path/fio
   iperf_path=$benchy_path/iperf3
-  screen_path=$benchy_path/screen
   geekbench_path="${benchy_path}/gb${gb_version}"
   bc_path=$benchy_path/bc
   country_code=$benchy_path/country.txt
@@ -199,7 +198,6 @@ binarycheck() {
     [ ! -d "$benchy_path" ] && mkdir -p $benchy_path
     [ ! -d "$fio_path" ] && mkdir -p $fio_path
     [ ! -d "$iperf_path" ] && mkdir -p $iperf_path
-    [ ! -d "$screen_path" ] && mkdir -p $screen_path
     [ ! -d "$geekbench_path" ] && mkdir -p $geekbench_path
     [ ! -d "$bc_path" ] && mkdir -p $bc_path
     #printf "\r%s" "$(tput el)"
