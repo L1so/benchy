@@ -3,8 +3,6 @@
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-# tput binary
-! command -v tput >/dev/null 2>&1 && printf "%s" "please install ncurses" && exit 1
 currentVersion="v1.1"
 header_intro() {
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -68,6 +66,13 @@ convertsize() {
         continue
     done
     printf "%s\n" "${in}${dn} ${typen}"
+}
+
+core_pkg() {
+  for pkg in tput tar; do
+    ! command -v $pkg >/dev/null 2>&1 && printf "%s" "$pkg missing from your system"
+  done
+  exit 1
 }
 
 format_disk() {
@@ -580,6 +585,7 @@ geekbench_test() {
 
 main() {
   command -v locale >/dev/null 2>&1 && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
+  core_pkg
   tput civis
   header_intro
   user_arch
