@@ -69,10 +69,10 @@ convertsize() {
 }
 
 core_pkg() {
+  command -v locale >/dev/null 2>&1 && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
   for pkg in tput tar; do
-    ! command -v $pkg >/dev/null 2>&1 && printf "%s" "$pkg missing from your system"
+    ! command -v $pkg >/dev/null 2>&1 && printf "%s\n" "$pkg missing from your system" && exit 1
   done
-  exit 1
 }
 
 format_disk() {
@@ -582,7 +582,6 @@ geekbench_test() {
 }
 
 main() {
-  command -v locale >/dev/null 2>&1 && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
   core_pkg
   tput civis
   header_intro
