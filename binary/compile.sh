@@ -21,14 +21,12 @@ cd ncurses-*
 env CFLAGS="$STATICLIB_CFLAGS" CXXFLAGS="$STATICLIB_CXXFLAGS" ./configure --prefix=/hbb_exe --enable-static && \
 make && \
 make install
-
+[ $? -eq 0 ] && cp /hbb_exe/bin/tput /tmp
 # Install texinfo
 yum --disablerepo=phusion_centos-6-scl-i386,phusion_centos-6-scl-i386-source -y install texinfo
 
 # Activate Holy Build Box environment.
 source /hbb_exe/activate
-
-
 
 # GNU bc
 curl -L http://alpha.gnu.org/gnu/bc/bc-1.06.95.tar.bz2 -o "bc.tar.bz"
@@ -54,7 +52,9 @@ make install
 libcheck /tmp/bin/bc
 libcheck /tmp/bin/dc
 libcheck /tmp/bin/screen
+libcheck /tmp/tput
 
 # Copy result to host
 cp /tmp/bin/bc /io/bc_$arch
 cp /tmp/bin/screen /io/screen_$arch
+cp /tmp/tput /io/tput_$arch
