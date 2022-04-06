@@ -2,6 +2,13 @@
 
 Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to make it more efficient.
 
+## Download
+Via wget.
+
+	wget -qO- https://raw.githubusercontent.com/L1so/benchy/main/benchy | sh
+Via curl.
+
+	curl -Ls https://raw.githubusercontent.com/L1so/benchy/main/benchy | sh
 ## Feature
 * Basic server information, this include but not limited to:
 	* Operating System
