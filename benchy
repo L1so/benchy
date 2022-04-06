@@ -200,7 +200,7 @@ binarycheck() {
     #printf "\r%s" "$(tput el)"
 
     printf "%s" "Downloading required asset, please wait a moment..."
-    gitlink="https://github.com/L1so/benchy/blob/main/binary"
+    gitlink="https://github.com/L1so/benchy/raw/main/binary"
 
     # Country code
     file_grabber "ipinfo.io/country" $country_code
