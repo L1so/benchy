@@ -21,7 +21,7 @@ Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.co
 ## Portability
 As of [fca1b99](https://github.com/L1so/benchy/commit/fca1b99b8fabeb563a8e6a628b82b4634e03b0f8), I have removed all [bashism](https://mywiki.wooledge.org/Bashism) from Benchy code and replace them with their POSIX counterpart. This of course to ensure portability between different kind of shells.
 
-Thus, benchy should work on all POSIX shells (e.g. `dash`, `ksh`, `zsh`, `mksh`, `ash`). Though I only have tested and confirm working on `dash` and `ksh`.
+Benchy should work on all POSIX shells (e.g. `dash`, `ksh`, `zsh`, `mksh`, `ash`). Though I only have tested and confirm working on `dash` and `ksh`.
 
 ## Requirement
 This section covers various Linux Distribution supported by benchy, each test conducted on clean LXC container.
