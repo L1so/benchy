@@ -200,7 +200,7 @@ binarycheck() {
     #printf "\r%s" "$(tput el)"
 
     printf "%s" "Downloading required asset, please wait a moment..."
-    gitlink="https://github.com/L1so/benchy/raw/main/binary"
+    gitlink="https://github.com/L1so/benchy/blob/main/binary"
 
     # Country code
     file_grabber "ipinfo.io/country" $country_code
@@ -209,25 +209,19 @@ binarycheck() {
 
     # Download fio if not exist
     if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
-      file_grabber "${gitlink}/fio_${arch}" "$fio_path/fio"
+      file_grabber "${gitlink}/fio/fio_${arch}" "$fio_path/fio"
       [ $? -eq 0 ] && chmod u+x $fio_path/fio
     fi
 
     # Download iperf3 if not exist
     if [ "$iperf" != "iperf3" ] && [ ! -f "$iperf_path/iperf3" ]; then
-      file_grabber "${gitlink}/iperf3_${arch}" "$iperf_path/iperf3"
+      file_grabber "${gitlink}/iperf3/iperf3_${arch}" "$iperf_path/iperf3"
       [ $? -eq 0 ] && chmod u+x $iperf_path/iperf3
-    fi
-
-    # Download screen if not exist
-    if [ "$screen" != "screen" ] && [ ! -f "$screen_path/screen" ]; then
-      file_grabber "${gitlink}/screen_${arch}" "$screen_path/screen"
-      [ $? -eq 0 ] && chmod u+x $screen_path/screen
     fi
 
     # Download bc if not exist
     if [ "$bc" != "bc" ] && [ ! -f "$bc_path/bc" ]; then
-      file_grabber "${gitlink}/bc_${arch}" "$bc_path/bc"
+      file_grabber "${gitlink}/bc/bc_${arch}" "$bc_path/bc"
       [ $? -eq 0 ] && chmod u+x $bc_path/bc
     fi
     overline
