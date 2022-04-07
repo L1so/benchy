@@ -147,7 +147,7 @@ print_virtualization() {
     echo "qemu" && return 0
   fi
   # lxc test
-  if grep -q lxc /proc/1/environ; then
+  if grep -q lxc /proc/1/environ 2>/dev/null; then
     echo "lxc" && return 0
   fi
   # openvz test
