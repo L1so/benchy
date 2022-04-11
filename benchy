@@ -410,8 +410,8 @@ iperflist() {
   # iperf3 ipv4 provider list
   ipv4_provider=$(cat << 'EOF'
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
-OVHcloud|Virginia, USA|5201-5210|vin.proof.ovh.us
-Serverius|Dronten, Netherland|5002-5002|speedtest.serverius.net
+Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
+Uztelecom|Tashkent, Uzbekistan|5200-5209|speedtest.uztelecom.uz
 Online.net|Paris, France|5200-5209|ping.online.net
 WebHorizon|Singapore|9201-9205|iperf.sgp.webhorizon.in
 EOF
@@ -419,8 +419,8 @@ EOF
   # iperf3 ipv6 provider list
   ipv6_provider=$(cat << 'EOF'
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
-OVHcloud|Virginia, USA|5201-5210|vin.proof.ovh.us
-Serverius|Dronten, Netherland|5002-5002|speedtest.serverius.net
+Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
+Uztelecom|Tashkent, Uzbekistan|5200-5209|speedtest.uztelecom.uz
 Online.net|Paris, France|5200-5209|ping6.online.net
 WebHorizon|Singapore|9201-9205|iperf.sgp.webhorizon.in
 EOF
