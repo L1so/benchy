@@ -14,7 +14,7 @@ Via curl.
 	* Operating System
 	* CPU Model
 	* CPU Core Count
-	* Virtualization used (**systemd only**)
+	* Virtualization used
 	* Disk (Count and Usage)
 	* Memory (Count and Usage)
 	* Swap size
@@ -33,7 +33,7 @@ Benchy should work on all POSIX shells (e.g. `dash`, `ksh`, `zsh`, `mksh`, `ash`
 ## Requirement
 This section covers various Linux Distribution supported by benchy, each test conducted on clean LXC container.
 
-| Distribution | Minimal Version |Is it working?|
+| Distribution | Minimal Version |Fully Tested ?|
 | --- | --- |---|
 | Ubuntu | 14.04 |Yes|
 |Debian|7|Yes|
@@ -46,7 +46,7 @@ This section covers various Linux Distribution supported by benchy, each test co
 Benchy **may** also works on other distribution than previously stated. Be sure to report any issues that you found.
 
 ## Alpine Linux
-While most Linux distribution uses glibc, Alpine Linux implement [musl libc](https://musl.libc.org/) in its system, thus making precompiled binaries I have prepared not working as it is not compatible with musl libc.
+<strike>While most Linux distribution uses glibc, Alpine Linux implement [musl libc](https://musl.libc.org/) in its system, thus making precompiled binaries not working as it is not compatible with musl libc.
 
 Until I have found a way to correctly create a precompiled binaries that works across library, Alpine Linux user are advised to install three core package of benchy.
 
@@ -54,6 +54,9 @@ Until I have found a way to correctly create a precompiled binaries that works a
 	apk add fio # fio
 	apk add iperf3 # iperf3
 Also I have confirmed that geekbench **does not work** with alpine, once again this is due to incompatible c library.
+</strike>
+
+With the exception of geekbench, now those precompiled binaries will works on Alpine Linux (musl libc).
 ## Example Output
 
 This is sample output of benchy in action:
