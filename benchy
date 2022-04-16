@@ -3,7 +3,7 @@
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v1.1"
+currentVersion="v1.2"
 header_intro() {
   currentDate=$(date +"%d %b %Y %H:%M %Z")
   echo '# # # # # # # # # # # # # # # # # # #'
@@ -24,7 +24,9 @@ Options:
   -n, --skip-network      Skip iperf3 network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
-  -i, --show-ip           Show IP Address
+  -i, --show-ip           Display server public IP address
+  -l, --long-info         Display long complete output
+  -p, --parse-only        Only parse basic information (equal to -tndg)
   -h, --help              Display this help section
   -v, --version           Display version
 EOT
@@ -42,6 +44,13 @@ if [ "$#" != 0 ]; then
       -d|--skip-disk) arg_skip_disk="true";;
       -g|--skip-gb) arg_skip_gb="true";;
       -i|--show-ip) arg_show_ip="true";;
+      -l|--long-output) arg_long_output="true";;
+      -p|--parse-only)
+      arg_temp_file="true"
+      arg_skip_network="true"
+      arg_skip_disk="true"
+      arg_skip_gb="true"
+      ;;
       -h|--help) display_help; exit 0;;
       -v|--version) printf "%s\n" "$currentVersion"; exit 0;;
       -|''|[!-]*) set -- "$@" "$opt";;
@@ -203,11 +212,11 @@ binarycheck() {
 
   # IPv4 address
   ipv4_address=$(file_grabber ipv4.icanhazip.com)
-  [ $? -eq 0 ] && ipv4_status="true"
+  [ $? -eq 0 ] && ipv4_status="true" || ipv4_status="false"
 
   # IPv6 address
   ipv6_address=$(file_grabber ipv6.icanhazip.com)
-  [ $? -eq 0 ] && ipv6_status="true"
+  [ $? -eq 0 ] && ipv6_status="true" || ipv6_status="false"
 
   if [ ! -d "$benchy_path" ]; then
     #printf "%s" "Creating $benchy_path, all benchy related file will be stored in here..."
@@ -324,20 +333,33 @@ sysinfo() {
   mem_usage=$(free -m | awk 'NR==2{printf "%s MB (%.0f%% Used)\n", $3,$3*100/$2 }')
   swap_info=$(convertsize "$(free | awk '/Swap/ {print $2}')")
 
-  # Printing the output: System Information
-  printf "System Information\n"; printf "%21s\n" | tr ' ' '-'
-  printf "%-11s : %-10s\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "IPv4" "$ipv4_string" "IPv6" "$ipv6_string"
-  echo
+  if [ "$arg_long_output" = "true" ]; then
+    # Printing the output: System Information
+    printf "System Information\n"; printf "%21s\n" | tr ' ' '-'
+    printf "%-11s : %-10s\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "IPv4" "$ipv4_string" "IPv6" "$ipv6_string"
+    echo
 
-  # Printing the output: Processor Information
-  printf "Processor Information\n"; printf "%21s\n" | tr ' ' '-'
-  printf "%-11s : %-10s\n" "Model" "$cpu_model" "Core" "$cpu_core @ $cpu_freq" "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
-  echo
+    # Printing the output: Processor Information
+    printf "Processor Information\n"; printf "%21s\n" | tr ' ' '-'
+    printf "%-11s : %-10s\n" "Model" "$cpu_model" "Core" "$cpu_core @ $cpu_freq" "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
+    echo
 
-  # Printing the output: Disk & Memory Usage
-  printf "Disk & Memory Usage\n"; printf "%21s\n" | tr ' ' '-'
-  printf "%-11s : %-10s\n" "Disk" "$disk_info" "Disk Usage" "$disk_usage ($disk_percentage Used)" "Mem" "$mem_info" \
-  "Mem Usage" "$mem_usage" "Swap" "$swap_info"
+    # Printing the output: Disk & Memory Usage
+    printf "Disk & Memory Usage\n"; printf "%21s\n" | tr ' ' '-'
+    printf "%-11s : %-10s\n" "Disk" "$disk_info" "Disk Usage" "$disk_usage ($disk_percentage Used)" "Mem" "$mem_info" \
+    "Mem Usage" "$mem_usage" "Swap" "$swap_info"
+  else
+    # Printing the output (short ver.): Server Information
+    printf "Server Information\n"; printf "%21s\n" | tr ' ' '-'
+    printf "%-11s : %-10s\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "CPU" "$cpu_model" "Core" "$cpu_core @ $cpu_freq" \
+    "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
+    echo
+
+    # Printing the output (short ver.): Disk & Memory Usage
+    printf "Disk & Memory Usage\n"; printf "%21s\n" | tr ' ' '-'
+    printf "%-11s : %-10s\n" "Disk" "$disk_info" "Disk Usage" "$disk_usage ($disk_percentage Used)" "Mem" "$mem_info" \
+    "Mem Usage" "$mem_usage" "Swap" "$swap_info"
+  fi
   echo
 }
 disk_test() {
@@ -424,9 +446,9 @@ output_disk_test() {
     while IFS='|' read -r blocksize read write total read_iops write_iops total_iops; do
       # Loop over variable
       printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
-      printf "+%75s+\n" | tr ' ' '-'
     done
   }
+  printf "+%75s+\n" | tr ' ' '-'
   echo
 }
 
@@ -435,18 +457,18 @@ iperflist() {
   ipv4_provider=$(cat << 'EOF'
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
 Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
-Uztelecom|Tashkent, Uzbekistan|5200-5209|speedtest.uztelecom.uz
-Online.net|Paris, France|5200-5209|ping.online.net
-WebHorizon|Singapore|9201-9205|iperf.sgp.webhorizon.in
+Uztelecom|Tashkent, UZB|5200-5209|speedtest.uztelecom.uz
+Online.net|Paris, FRA|5200-5209|ping.online.net
+WebHorizon|Singapore, SG|9201-9205|iperf.sgp.webhorizon.in
 EOF
 )
   # iperf3 ipv6 provider list
   ipv6_provider=$(cat << 'EOF'
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
 Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
-Uztelecom|Tashkent, Uzbekistan|5200-5209|speedtest.uztelecom.uz
-Online.net|Paris, France|5200-5209|ping6.online.net
-WebHorizon|Singapore|9201-9205|iperf.sgp.webhorizon.in
+Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz
+Online.net|Paris, FR|5200-5209|ping6.online.net
+WebHorizon|Singapore, SG|9201-9205|iperf.sgp.webhorizon.in
 EOF
 )
 }
@@ -488,19 +510,23 @@ runiperf() {
   done
 }
 
-parse_iperf() {
+iperf_header() {
   [ "$arg_skip_network" = "true" ] && return 1
   iperflist
+  printf "Network Performance Test:\n"
+  printf "+%91s+\n" | tr ' ' '-'
+  printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
+  printf "+%91s+\n" | tr ' ' '='
+}
+
+parse_iperf() {
   case "$1" in
     *v4*)
     # Internet Protocol Version 4 (IPv4) test
     case "$ipv4_status" in
       'true')
       iperf_flags="-4"
-      printf "Network Performance Test (IPv4):\n"
-      printf "+%83s+\n" | tr ' ' '-'
-      printf "| %-11s | %-20s | %-15s | %-15s | %-8s |\n" "Provider" "Location" "Send" "Receive" "Latency"
-      printf "+%83s+\n" | tr ' ' '='
+      prot="IPv4"
       echo "$ipv4_provider" |
       {
         while IFS='|' read -r provider loc port url; do
@@ -519,11 +545,11 @@ parse_iperf() {
           fi
           overline
           # End latency test
-          printf "| %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
-          printf "+%83s+\n" | tr ' ' '-'
-          unset send_speed rec_speed
+          printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
+          unset send_speed rec_speed prot
         done
       }
+      printf "+%91s+\n" | tr ' ' '-'
       ;;
       *) return 1;;
     esac
@@ -533,10 +559,7 @@ parse_iperf() {
     case "$ipv6_status" in
       'true')
       iperf_flags="-6"
-      printf "Network Performance Test (IPv6):\n"
-      printf "+%83s+\n" | tr ' ' '-'
-      printf "| %-11s | %-20s | %-15s | %-15s | %-8s |\n" "Provider" "Location" "Send" "Receive" "Latency"
-      printf "+%83s+\n" | tr ' ' '='
+      prot="IPv6"
       echo "$ipv6_provider" |
       {
         while IFS='|' read -r provider loc port url; do
@@ -555,11 +578,11 @@ parse_iperf() {
           fi
           overline
           # End latency test
-          printf "| %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
-          printf "+%83s+\n" | tr ' ' '-'
-          unset send_speed rec_speed
+          printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
+          unset send_speed rec_speed prot
         done
       }
+      printf "+%91s+\n" | tr ' ' '-'
       ;;
       *) return 1;;
     esac
@@ -571,7 +594,7 @@ geekbench_test() {
   [ "$arg_skip_gb" = "true" ] && return 1
   # Exit if ipv6 only
   case "$ipv4_status" in
-    *Disabled*) printf "%s\n" "Geekbench doesn't work over ipv6, exiting test.." && return 1;;
+    'false') printf "%s\n" "Geekbench doesn't work over ipv6, exiting test.." && return 1;;
   esac
   if [ "$gb_version" -eq 5 ]; then
     # Geekbench 5
@@ -600,7 +623,6 @@ geekbench_test() {
   fi
   # Parsing result
   if [ -n "$gb_output" ]; then
-    echo
     gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
     gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
     gbfile="$benchy_path/temp_gb${gb_version}.log"
@@ -610,11 +632,10 @@ geekbench_test() {
     gb_string=$(gb_string "$gbfile")
     printf "+%47s+\n" | tr ' ' '-'
     printf "| %-32s |\n" "$gb_string"
-    printf "+%47s+\n" | tr ' ' '='
+    printf "+%47s+\n" | tr ' ' '-'
     printf "| %-25s | %-17s |\n" "Type of Test" "Score"
     printf "+%47s+\n" | tr ' ' '='
     printf "| %-25s | %-17s |\n" "Single Core" "$gb_single_core"
-    printf "+%47s+\n" | tr ' ' '-'
     printf "| %-25s | %-17s |\n" "Multi Core" "$gb_multi_core"
     printf "+%47s+\n" | tr ' ' '-'
     printf "| %-32s |\n" "$gb_output"
@@ -640,8 +661,11 @@ main() {
       output_disk_test
     fi
   fi
-  parse_iperf ipv4 && echo
-  parse_iperf ipv6 && echo
+  if iperf_header; then
+    parse_iperf ipv4 || echo
+    parse_iperf ipv6 || echo
+    printf "+%91s+\n" | tr ' ' '-' && echo
+  fi
   geekbench_test
   [ "$arg_temp_file" = "true" ] && rm -fr -- "$benchy_path"
 }

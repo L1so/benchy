@@ -3,20 +3,15 @@
 #   https://github.com/L1so/benchy  #
 #        AIO Benchmarking tool      #
 # # # # # # # # # # # # # # # # # # #
-#       16 Apr 2022 15:39 WIB       #
+#       16 Apr 2022 15:25 WIB       #
 # # # # # # # # # # # # # # # # # # #
 
-System Information
+Server Information
 ---------------------
 OS          : Ubuntu 16.04.7 LTS
-Uptime      : 19 Days, 22 Hours, 51 Minute, 26 Seconds 
+Uptime      : 19 Days, 22 Hours, 37 Minute, 34 Seconds 
 Location    : Singapore 
-IPv4        : ✔ Enabled
-IPv6        : ✔ Enabled
-
-Processor Information
----------------------
-Model       : AMD EPYC 7502P 32-Core Processor
+CPU         : AMD EPYC 7502P 32-Core Processor
 Core        : 2 @ 2495.312 MHz
 AES-NI      : ✔ Enabled
 VM-x/AMD-V  : ✔ Enabled
@@ -25,7 +20,7 @@ Virt        : kvm
 Disk & Memory Usage
 ---------------------
 Disk        : 49.18 GiB 
-Disk Usage  : 20.42 GiB (44% Used)
+Disk Usage  : 18.30 GiB (40% Used)
 Mem         : 3.85 GiB  
 Mem Usage   : 421 MB (11% Used)
 Swap        : 1023.99 MiB
