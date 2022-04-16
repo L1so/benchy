@@ -1,66 +1,3 @@
-# Benchy - AIO Benchmark script
-
-Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to make it more efficient.
-
-## Download
-Via wget.
-
-	wget -qO- https://raw.githubusercontent.com/L1so/benchy/main/benchy | sh
-Via curl.
-
-	curl -Ls https://raw.githubusercontent.com/L1so/benchy/main/benchy | sh
-## Feature
-* Basic server information, this include but not limited to:
-	* Operating System
-	* CPU Model
-	* CPU Core Count
-	* Virtualization used
-	* Disk (Count and Usage)
-	* Memory (Count and Usage)
-	* Swap size
-* IPv4 Check
-* IPv6 Check
-* Server Geolocation
-* Server Uptime
-* Fallback to `wget` if `curl` is not installed (this applied to Debian based system, where `curl` is not installed by default)
-* [POSIX](https://pubs.opengroup.org/onlinepubs/9699919799.2018edition/) compliant, meaning in theory it should work on all platform that enforce POSIX. <sub>See [Portability](https://github.com/L1so/benchy#portability)</sub>
-
-## Portability
-As of [fca1b99](https://github.com/L1so/benchy/commit/fca1b99b8fabeb563a8e6a628b82b4634e03b0f8), I have removed all [bashism](https://mywiki.wooledge.org/Bashism) from Benchy code and replace them with their POSIX counterpart. This of course to ensure portability between different kind of shells.
-
-Benchy should work on all POSIX shells (e.g. `dash`, `ksh`, `zsh`, `mksh`, `ash`). Though I only have tested and confirm working on `dash` and `ksh`.
-
-## Requirement
-This section covers various Linux Distribution supported by benchy, each test conducted on clean LXC container.
-
-| Distribution | Minimal Version |Fully Tested ?|
-| --- | --- |---|
-| Ubuntu | 14.04 |Yes|
-|Debian|7|Yes|
-| CentOS | 7 |Yes|
-| RockyLinux |8 |Yes|
-|Alma Linux|8.3|Yes|
-|Alpine Linux |3.11|Yes <sub><sup>With [note](https://github.com/L1so/benchy#alpine-linux)</sup></sub>|
-|Fedora|6|Yes|
-
-Benchy **may** also works on other distribution than previously stated. Be sure to report any issues that you found.
-
-## Alpine Linux
-<strike>While most Linux distribution uses glibc, Alpine Linux implement [musl libc](https://musl.libc.org/) in its system, thus making precompiled binaries not working as it is not compatible with musl libc.
-
-Until I have found a way to correctly create a precompiled binaries that works across library, Alpine Linux user are advised to install three core package of benchy.
-
-	apk add ncurses # tput
-	apk add fio # fio
-	apk add iperf3 # iperf3
-Also I have confirmed that geekbench **does not work** with alpine, once again this is due to incompatible c library.
-</strike>
-
-With the exception of geekbench, now those precompiled binaries will works on Alpine Linux (musl libc).
-## Example Output
-
-This is sample output of benchy in action:
-```
 # # # # # # # # # # # # # # # # # # #
 #            Benchy v1.2            #
 #   https://github.com/L1so/benchy  #
@@ -125,10 +62,3 @@ Network Performance Test:
 +-----------------------------------------------+
 | https://browser.geekbench.com/v5/cpu/14348398 |
 +-----------------------------------------------+
-
-
-```
-## Feature Request & Bugs
-If you ever encounter a bugs, please let me know by opening an issue here. I will try my best to fix them.
-
-Also feel free to submit a feature request, if the idea worth implementing— I'll let you know !
