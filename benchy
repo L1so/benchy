@@ -1,5 +1,5 @@
 #!/bin/sh
-# Benchy V1.1
+# Benchy V1.2
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
@@ -113,9 +113,9 @@ file_grabber() {
   ddl_input="$1"
   if [ "$filegrab" -eq 0 ]; then
     case "$ddl_input" in
-      *cdn.geekbench.com*) _curl_opt="-kL --progress-bar";;
-      *ipv*) _curl_opt="-s --connect-timeout 1 --max-time 1";;
-      *) _curl_opt="-kLs --connect-timeout 5 --retry 5 --retry-delay 0 -o $2";;
+      *cdn.geekbench.com*) _curl_opt="-L --progress-bar";;
+      *ipv?.icanhazip.com*) _curl_opt="-s --connect-timeout 1 --max-time 1";;
+      *) _curl_opt="-Ls --connect-timeout 5 --retry 5 --retry-delay 0 -o $2";;
     esac
     curl $_curl_opt $ddl_input
   elif [ "$filegrab" -eq 1 ]; then
@@ -123,7 +123,7 @@ file_grabber() {
       *cdn.geekbench.com*)
       { wget --help 2>&1 | grep -q -- '--show-progress'; } && _wget_opt="-qO- --show-progress --progress=bar:force" || _wget_opt="-qO-"
       ;;
-      *ipv*) _wget_opt="--timeout=1 --tries=1 --quiet";;
+      *ipv?.icanhazip.com*) _wget_opt="--timeout=1 --tries=1 --quiet";;
       *) _wget_opt="-q -O $2";;
     esac
     wget $_wget_opt $ddl_input
@@ -220,11 +220,7 @@ binarycheck() {
 
   if [ ! -d "$benchy_path" ]; then
     #printf "%s" "Creating $benchy_path, all benchy related file will be stored in here..."
-    [ ! -d "$benchy_path" ] && mkdir -p $benchy_path
-    [ ! -d "$fio_path" ] && mkdir -p $fio_path
-    [ ! -d "$iperf_path" ] && mkdir -p $iperf_path
-    [ ! -d "$geekbench_path" ] && mkdir -p $geekbench_path
-    [ ! -d "$bc_path" ] && mkdir -p $bc_path
+    mkdir -p $benchy_path $fio_path $iperf_path $geekbench_path $bc_path
     #printf "\r%s" "$(tput el)"
 
     printf "%s" "Downloading required asset, please wait a moment..."
@@ -391,7 +387,7 @@ disk_test() {
     --minimal 2> /dev/null
     )
     [ "$?" -ne 0 ] && \
-    fio_result="${fio_result}1|Failed|To|Bench|Disk|Please|Retry#" && \
+    fio_result="${fio_result}1|Failed|To|Bench|Disk|Please|Retry#" && overline && \
     continue
 
     fio_iops_read=$(echo "$fioutput" | cut -d';' -f8)
@@ -520,74 +516,64 @@ iperf_header() {
 }
 
 parse_iperf() {
-  case "$1" in
-    *v4*)
-    # Internet Protocol Version 4 (IPv4) test
-    case "$ipv4_status" in
-      'true')
-      iperf_flags="-4"
-      prot="IPv4"
-      echo "$ipv4_provider" |
-      {
-        while IFS='|' read -r provider loc port url; do
-          runiperf $url $port $provider $iperf_flags
-          case "$send_speed" in
-            ""|*0.00*) send_speed="busy";;
-          esac
-          case "$rec_speed" in
-            ""|*0.00*) rec_speed="busy";;
-          esac
-          # Latency test
-          printf "%s" "Performing latency test to $provider (avg of 5)"
-          latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.0f ms\n", $5 }')
-          if [ -z "$latency" ]; then
-            latency="busy"
-          fi
-          overline
-          # End latency test
-          printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
-          unset send_speed rec_speed prot
-        done
-      }
-      printf "+%91s+\n" | tr ' ' '-'
-      ;;
-      *) return 1;;
-    esac
-      ;;
-    *v6*)
-    # Internet Protocol Version 6 (IPv6) test
-    case "$ipv6_status" in
-      'true')
-      iperf_flags="-6"
-      prot="IPv6"
-      echo "$ipv6_provider" |
-      {
-        while IFS='|' read -r provider loc port url; do
-          runiperf $url $port $provider $iperf_flags
-          case "$send_speed" in
-            ""|*0.00*) send_speed="busy";;
-          esac
-          case "$rec_speed" in
-            ""|*0.00*) rec_speed="busy";;
-          esac
-          # Latency test
-          printf "%s" "Performing latency test to $provider (avg of 5)"
-          latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.0f ms\n", $5 }')
-          if [ -z "$latency" ]; then
-            latency="busy"
-          fi
-          overline
-          # End latency test
-          printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
-          unset send_speed rec_speed prot
-        done
-      }
-      printf "+%91s+\n" | tr ' ' '-'
-      ;;
-      *) return 1;;
-    esac
-      ;;
-  esac
+  # Internet Protocol Version 4 (IPv4) test
+  if [ "$ipv4_status" = "true" ]; then
+    iperf_flags="-4"
+    prot="IPv4"
+    echo "$ipv4_provider" |
+    {
+      while IFS='|' read -r provider loc port url; do
+        runiperf $url $port $provider $iperf_flags
+        case "$send_speed" in
+          ""|*0.00*) send_speed="busy";;
+        esac
+        case "$rec_speed" in
+          ""|*0.00*) rec_speed="busy";;
+        esac
+        # Latency test
+        printf "%s" "Performing latency test to $provider (avg of 5)"
+        latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.0f ms\n", $5 }')
+        if [ -z "$latency" ]; then
+          latency="busy"
+        fi
+        overline
+        # End latency test
+        printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
+        unset send_speed rec_speed prot
+      done
+    }
+    printf "+%91s+\n" | tr ' ' '-'
+  fi
+
+  # Internet Protocol Version 6 (IPv6) test
+  if [ "$ipv6_status" = "true" ]; then
+    iperf_flags="-6"
+    prot="IPv6"
+    echo "$ipv6_provider" |
+    {
+      while IFS='|' read -r provider loc port url; do
+        runiperf $url $port $provider $iperf_flags
+        case "$send_speed" in
+          ""|*0.00*) send_speed="busy";;
+        esac
+        case "$rec_speed" in
+          ""|*0.00*) rec_speed="busy";;
+        esac
+        # Latency test
+        printf "%s" "Performing latency test to $provider (avg of 5)"
+        latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.0f ms\n", $5 }')
+        if [ -z "$latency" ]; then
+          latency="busy"
+        fi
+        overline
+        # End latency test
+        printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
+        unset send_speed rec_speed prot
+      done
+    }
+    printf "+%91s+\n" | tr ' ' '-'
+  fi
+  echo
 }
 geekbench_test() {
   # Skip geekbench on input argument
@@ -662,9 +648,7 @@ main() {
     fi
   fi
   if iperf_header; then
-    parse_iperf ipv4 || echo
-    parse_iperf ipv6 || echo
-    printf "+%91s+\n" | tr ' ' '-' && echo
+    parse_iperf
   fi
   geekbench_test
   [ "$arg_temp_file" = "true" ] && rm -fr -- "$benchy_path"
