@@ -115,7 +115,7 @@ file_grabber() {
     case "$ddl_input" in
       *cdn.geekbench.com*) _curl_opt="-L --progress-bar";;
       *ipv?.icanhazip.com*) _curl_opt="-s --connect-timeout 1 --max-time 1";;
-      *) _curl_opt="-Ls --connect-timeout 5 --retry 5 --retry-delay 0 -o $2";;
+      *) _curl_opt="-kLs --connect-timeout 5 --retry 5 --retry-delay 0 -o $2";;
     esac
     curl $_curl_opt $ddl_input
   elif [ "$filegrab" -eq 1 ]; then
@@ -510,9 +510,9 @@ iperf_header() {
   [ "$arg_skip_network" = "true" ] && return 1
   iperflist
   printf "Network Performance Test:\n"
-  printf "+%91s+\n" | tr ' ' '-'
-  printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
-  printf "+%91s+\n" | tr ' ' '='
+  printf "+%86s+\n" | tr ' ' '-'
+  printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
+  printf "+%86s+\n" | tr ' ' '='
 }
 
 parse_iperf() {
@@ -538,11 +538,11 @@ parse_iperf() {
         fi
         overline
         # End latency test
-        printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
+        printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
         unset send_speed rec_speed prot
       done
     }
-    printf "+%91s+\n" | tr ' ' '-'
+    printf "+%86s+\n" | tr ' ' '-'
   fi
 
   # Internet Protocol Version 6 (IPv6) test
@@ -567,27 +567,24 @@ parse_iperf() {
         fi
         overline
         # End latency test
-        printf "| %-5s | %-11s | %-20s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
+        printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
         unset send_speed rec_speed prot
       done
     }
-    printf "+%91s+\n" | tr ' ' '-'
+    printf "+%86s+\n" | tr ' ' '-'
   fi
-  echo
 }
 geekbench_test() {
   # Skip geekbench on input argument
   [ "$arg_skip_gb" = "true" ] && return 1
   # Exit if ipv6 only
-  case "$ipv4_status" in
-    'false') printf "%s\n" "Geekbench doesn't work over ipv6, exiting test.." && return 1;;
-  esac
+  [ "$ipv4_status" = "false" ] && printf "%s\n" "Geekbench doesn't work over ipv6, exiting test.." && return 1
   if [ "$gb_version" -eq 5 ]; then
     # Geekbench 5
     if [ ! -f "$geekbench_path/geekbench5" ]; then
-      printf "%s" "Downloading Geekbench 5, this may take a several minute..."
+      printf "%s\n" "Downloading Geekbench 5, this may take a several minute..."
       file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
-      && printf "\r%s" "$(tput cuu 2 && tput ed)"
+      && printf "\r%s" "$(tput cuu 2; tput ed)"
     fi
     # Perform geekbench 5 test
     printf "%s" "Initializing geekbench 5 test..."
@@ -599,7 +596,7 @@ geekbench_test() {
     if [ ! -f "$geekbench_path/geekbench4" ]; then
       printf "%s\n" "Downloading Geekbench 4, this may take a several minute..."
       file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
-      && printf "\r%s" "$(tput cuu 2 && tput ed)"
+      && printf "\r%s" "$(tput cuu 2; tput ed)"
     fi
     # Perform geekbench 4 test
     printf "%s" "Initializing geekbench 4 test..."
@@ -618,8 +615,6 @@ geekbench_test() {
     gb_string=$(gb_string "$gbfile")
     printf "+%47s+\n" | tr ' ' '-'
     printf "| %-32s |\n" "$gb_string"
-    printf "+%47s+\n" | tr ' ' '-'
-    printf "| %-25s | %-17s |\n" "Type of Test" "Score"
     printf "+%47s+\n" | tr ' ' '='
     printf "| %-25s | %-17s |\n" "Single Core" "$gb_single_core"
     printf "| %-25s | %-17s |\n" "Multi Core" "$gb_multi_core"
@@ -648,7 +643,7 @@ main() {
     fi
   fi
   if iperf_header; then
-    parse_iperf
+    parse_iperf && echo
   fi
   geekbench_test
   [ "$arg_temp_file" = "true" ] && rm -fr -- "$benchy_path"
