@@ -1,9 +1,9 @@
 #!/bin/sh
-# Benchy V1.2
+# Benchy V1.3
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v1.2"
+currentVersion="v1.3"
 header_intro() {
   currentDate=$(date +"%d %b %Y %H:%M %Z")
   echo '# # # # # # # # # # # # # # # # # # #'
@@ -26,7 +26,7 @@ Options:
   -g, --skip-gb           Skip geekbench 5 test
   -i, --show-ip           Display server public IP address
   -l, --long-info         Display long complete output
-  -p, --parse-only        Only parse basic information (equal to -tndg)
+  -p, --parse-only        Only parse basic information (equal to -ndg)
   -h, --help              Display this help section
   -v, --version           Display version
 EOT
@@ -46,7 +46,6 @@ if [ "$#" != 0 ]; then
       -i|--show-ip) arg_show_ip="true";;
       -l|--long-output) arg_long_output="true";;
       -p|--parse-only)
-      arg_temp_file="true"
       arg_skip_network="true"
       arg_skip_disk="true"
       arg_skip_gb="true"
@@ -81,7 +80,7 @@ convertsize() {
 
 core_pkg() {
   command -v locale >/dev/null 2>&1 && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
-  for pkg in tput tar; do
+  for pkg in tput tar lsblk; do
     ! command -v $pkg >/dev/null 2>&1 && printf "%s\n" "$pkg missing from your system" && exit 1
   done
 }
@@ -188,6 +187,7 @@ binarycheck() {
   iperf_path=$benchy_path/iperf3
   geekbench_path="${benchy_path}/gb${gb_version}"
   bc_path=$benchy_path/bc
+  lsblk_path=$benchy_path/lsblk
   country_code=$benchy_path/country.txt
   country_json=$benchy_path/country.json
 
@@ -197,6 +197,14 @@ binarycheck() {
   command -v iperf3 >/dev/null 2>&1 && iperf="iperf3" || iperf="$iperf_path/iperf3"
   # bc binary
   command -v bc >/dev/null 2>&1 && bc="bc" || bc="$bc_path/bc"
+  # lsblk binary (from util-linux) + check if -p option supported
+  if command -v lsblk >/dev/null 2>&1; then
+    if ! lsblk --help 2>&1 | grep -q -- '-p,'; then
+      lsblk="$lsblk_path"
+    else
+      lsblk="lsblk"
+    fi
+  fi
 
   # Prioritize curl over wget
   if command -v curl >/dev/null 2>&1; then
@@ -219,9 +227,7 @@ binarycheck() {
   [ $? -eq 0 ] && ipv6_status="true" || ipv6_status="false"
 
   if [ ! -d "$benchy_path" ]; then
-    #printf "%s" "Creating $benchy_path, all benchy related file will be stored in here..."
-    mkdir -p $benchy_path $fio_path $iperf_path $geekbench_path $bc_path
-    #printf "\r%s" "$(tput el)"
+    mkdir -p $benchy_path $geekbench_path
 
     printf "%s" "Downloading required asset, please wait a moment..."
     gitlink="https://github.com/L1so/benchy/raw/main/binary"
@@ -233,20 +239,30 @@ binarycheck() {
 
     # Download fio if not exist
     if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
+      mkdir -p $fio_path
       file_grabber "${gitlink}/fio/fio_${arch}" "$fio_path/fio"
       [ $? -eq 0 ] && chmod u+x $fio_path/fio
     fi
 
     # Download iperf3 if not exist
     if [ "$iperf" != "iperf3" ] && [ ! -f "$iperf_path/iperf3" ]; then
+      mkdir -p $iperf_path
       file_grabber "${gitlink}/iperf3/iperf3_${arch}" "$iperf_path/iperf3"
       [ $? -eq 0 ] && chmod u+x $iperf_path/iperf3
     fi
 
     # Download bc if not exist
     if [ "$bc" != "bc" ] && [ ! -f "$bc_path/bc" ]; then
+      mkdir -p $bc_path
       file_grabber "${gitlink}/bc/bc_${arch}" "$bc_path/bc"
       [ $? -eq 0 ] && chmod u+x $bc_path/bc
+    fi
+
+    # Download lsblk if not exist
+    if [ "$lsblk" != "lsblk" ] && [ ! -f "$lsblk_path/lsblk" ]; then
+      mkdir -p $lsblk_path
+      file_grabber "${gitlink}/lsblk/lsblk_${arch}" "$lsblk_path/lsblk"
+      [ $? -eq 0 ] && chmod u+x $lsblk_path/lsblk
     fi
     overline
   fi
@@ -359,11 +375,52 @@ sysinfo() {
   echo
 }
 disk_test() {
-  printf "Generating fio test file..."
-  $fio --name=setup --ioengine=libaio --rw=read --bs=64k --iodepth=64 --numjobs=2 --size=$fio_size --runtime=1 --gtod_reduce=1 --filename=$fio_path/test.fio \
-  --direct=1 --minimal >/dev/null 2>&1
-  overline
-
+  [ "$arg_skip_disk" = "true" ] && return 1
+  {
+    $lsblk -nPpbo KNAME,SIZE,PKNAME,MOUNTPOINT,FSTYPE |
+awk -F'="|" ?' -v OFS='|' '
+    {
+        kname = $2
+        size = $4
+        pkname = $6
+        mountpoint = $8
+        fstype = $10
+    }
+    pkname !~ "^/" { next }
+    mountpoint !~ "^/" { next }
+    size > sizes[pkname] {
+        knames[pkname] = kname
+        sizes[pkname] = size
+        mountpoints[pkname] = mountpoint
+        fstypes[pkname] = fstype
+    }
+    END {
+        for (pkname in knames)
+            print knames[pkname], sizes[pkname], mountpoints[pkname], fstypes[pkname]
+    }
+'
+  } |
+while IFS='|' read -r devname devsize devmp devtype; do
+  mountpoint=$devmp
+  disklimit=2000000000
+  case "$arch" in
+    *arm*|*aarch*)
+    if [ "$devmp" = "/" ]; then
+      disklimit=512000000
+    fi
+    ;;
+  esac
+  # Skip root partition
+  [ "$mountpoint" = "/" ] && mountpoint=$benchy_path
+  # Skip disk that has less then given limit
+  if [ $devsize -lt $disklimit ]; then
+    printf "%s\n" "Too little storage on $devname"
+    continue
+  fi
+  if [ ! -w "$mountpoint" ]; then
+    printf "%s\n" "No write permission to $mountpoint, skipping disk"
+    continue
+  fi
   # Run fio on each block size
   set -- "4k" "64k" "512k" "1m"
   for bs; do
@@ -382,13 +439,12 @@ disk_test() {
     --runtime=30 \
     --gtod_reduce=1 \
     --direct=1 \
-    --filename=$fio_path/test.fio \
+    --filename=$mountpoint/test.fio \
     --group_reporting \
     --minimal 2> /dev/null
     )
     [ "$?" -ne 0 ] && \
-    fio_result="${fio_result}1|Failed|To|Bench|Disk|Please|Retry#" && overline && \
-    continue
+    fio_result="${fio_result}1|Failed|To|Bench|Disk|Please|Retry#" && overline && continue
 
     fio_iops_read=$(echo "$fioutput" | cut -d';' -f8)
     fio_iops_write=$(echo "$fioutput" | cut -d';' -f49)
@@ -408,32 +464,10 @@ disk_test() {
   done
   # Remove trailing hashtag
   fio_result="${fio_result%#}"
-  # Convert to newline
   fio_result=$(printf %s "$fio_result" | tr '#' '\n')
-}
 
-disk_check() {
-  [ "$arg_skip_disk" = "true" ] && return 1
-  # Check storage space eligibility
-  disk_storage=$(df -k . | awk 'NR==2 { print $4 }')
-  case "$arch" in
-     *arm*|*aarch*)
-     if [ "$disk_storage" -lt "512000" ]; then
-       printf "Your disk space is less than 512 MB. Will pass the disk test...\n"
-       return 1
-     fi
-     ;;
-     *)
-     if [ "$disk_storage" -lt "2612000" ]; then
-       printf "Your disk space is less than 2.6 GB. Will pass the disk test...\n"
-       return 1
-     fi
-     ;;
-  esac
-}
-output_disk_test() {
-  printf "Disk Performance Check ($disk_fstype on $disk_partition):\n"
-  # Build output
+  # Build fio output
+  printf "Disk Performance Check ($devtype on $devname):\n"
   printf "+%75s+\n" | tr ' ' '-'
   printf "| %-3s | %-11s | %-11s | %-11s | %18s %7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
   printf "+%75s+\n" | tr ' ' '='
@@ -445,7 +479,9 @@ output_disk_test() {
     done
   }
   printf "+%75s+\n" | tr ' ' '-'
+  unset fio_result
   echo
+done
 }
 
 iperflist() {
@@ -635,13 +671,7 @@ main() {
   user_arch
   binarycheck
   sysinfo
-  if disk_check; then
-    # Disk check passed
-    if disk_test; then
-      # Disk test passed
-      output_disk_test
-    fi
-  fi
+  disk_test
   if iperf_header; then
     parse_iperf && echo
   fi

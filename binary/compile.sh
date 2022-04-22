@@ -1,0 +1,1 @@
+/home/liso/Bash_lab/compile.sh
