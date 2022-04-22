@@ -200,7 +200,7 @@ binarycheck() {
   # lsblk binary (from util-linux) + check if -p option supported
   if command -v lsblk >/dev/null 2>&1; then
     if ! lsblk --help 2>&1 | grep -q -- '-p,'; then
-      lsblk="$lsblk_path"
+      lsblk="$lsblk_path/lsblk"
     else
       lsblk="lsblk"
     fi
@@ -421,6 +421,9 @@ while IFS='|' read -r devname devsize devmp devtype; do
     printf "%s\n" "No write permission to $mountpoint, skipping disk"
     continue
   fi
+  if [ -z "$devtype" ]; then
+    devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
+  fi
   # Run fio on each block size
   set -- "4k" "64k" "512k" "1m"
   for bs; do
@@ -480,6 +483,7 @@ while IFS='|' read -r devname devsize devmp devtype; do
   }
   printf "+%75s+\n" | tr ' ' '-'
   unset fio_result
+  rm -f -- $mountpoint/test.fio
   echo
 done
 }
