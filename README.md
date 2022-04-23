@@ -2,7 +2,7 @@
 
 Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to optimize the process.
 
-## Supported option
+## Supported flag
 	Usage: benchy [options]
 	Options:
 	  -t, --temp-file         Remove benchy dependencies after run (default: keep storing)
@@ -15,7 +15,7 @@ Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.co
 	  -h, --help              Display this help section
 	  -v, --version           Display version
 
-## Download
+## Usage
 Via wget.
 
 	wget -qO- https://raw.githubusercontent.com/L1so/benchy/main/benchy | sh
@@ -37,6 +37,7 @@ Via curl.
 * Server Uptime
 * Fallback to `wget` if `curl` is not installed (this applied to Debian based system, where `curl` is not installed by default)
 * [POSIX](https://pubs.opengroup.org/onlinepubs/9699919799.2018edition/) compliant, meaning in theory it should work on all platform that enforce POSIX. <sub>See [Portability](https://github.com/L1so/benchy#portability)</sub>
+* Support for multiple disk layout
 
 ## Portability
 As of [fca1b99](https://github.com/L1so/benchy/commit/fca1b99b8fabeb563a8e6a628b82b4634e03b0f8), I have removed all [bashism](https://mywiki.wooledge.org/Bashism) from Benchy code and replace them with their POSIX counterpart. This of course to ensure portability between different kind of shells.
