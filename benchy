@@ -1,19 +1,22 @@
 #!/bin/sh
-# Benchy V1.3
+# Benchy V1.4
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v1.3"
+currentVersion="v1.4"
 header_intro() {
+  startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
-  echo '# # # # # # # # # # # # # # # # # # #'
-  echo "#            Benchy $currentVersion            #"
-  echo '#   https://github.com/L1so/benchy  #'
-  echo '#        AIO Benchmarking tool      #'
-  echo '# # # # # # # # # # # # # # # # # # #'
-  echo "#       $currentDate       #"
-  echo '# # # # # # # # # # # # # # # # # # #'
-  echo
+  {
+    echo '# # # # # # # # # # # # # # # # # # #'
+    echo "#            Benchy $currentVersion            #"
+    echo '#   https://github.com/L1so/benchy  #'
+    echo '#        AIO Benchmarking tool      #'
+    echo '# # # # # # # # # # # # # # # # # # #'
+    echo "#       $currentDate       #"
+    echo '# # # # # # # # # # # # # # # # # # #'
+    echo
+  } | parse_output
 }
 
 display_help() {
@@ -85,10 +88,33 @@ core_pkg() {
   done
 }
 
+parse_output() {
+  if [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; then
+    tee -a /tmp/benchy.log
+  else
+    cat
+  fi
+}
+
+send_output() {
+  if [ -f "/tmp/benchy.log" ]; then
+    resulturl=$(
+    if [ "$filegrab" -eq 0 ]; then
+      curl -sS -F 'sprunge=<-' http://sprunge.us < /tmp/benchy.log
+    elif [ "$filegrab" -eq 1 ]; then
+      cat /tmp/benchy.log | wget -qO - --post-data="sprunge=$(cat)"
+    fi
+    )
+    printf "| %-18s | %-24s |\n" "Benchy result" "$resulturl"
+    printf "+%47s+\n" | tr ' ' '-'
+    [ $? -eq 0 ] && rm -f /tmp/benchy.log
+  fi
+}
+
 format_disk() {
     b_formatdisk=$(printf "%s" ${1:-0} | tr -d -c 0-9) s_formatdisk=0
     d_formatdisk='' type_formatdisk=''
-    while [ "${b_formatdisk}" -gt 1024 ]; do
+    while [ "${b_formatdisk}" -gt 1000 ]; do
         d_formatdisk="$(printf ".%02d" $((b_formatdisk % 1024 * 100 / 1024)))"
         b_formatdisk=$((b_formatdisk / 1024)) && s_formatdisk=$((s_formatdisk += 1))
     done
@@ -113,7 +139,7 @@ file_grabber() {
   if [ "$filegrab" -eq 0 ]; then
     case "$ddl_input" in
       *cdn.geekbench.com*) _curl_opt="-L --progress-bar";;
-      *ipv?.icanhazip.com*) _curl_opt="-s --connect-timeout 1 --max-time 1";;
+      *icanhazip.com*) _curl_opt="-s --connect-timeout 1 --max-time 1";;
       *) _curl_opt="-kLs --connect-timeout 5 --retry 5 --retry-delay 0 -o $2";;
     esac
     curl $_curl_opt $ddl_input
@@ -122,7 +148,7 @@ file_grabber() {
       *cdn.geekbench.com*)
       { wget --help 2>&1 | grep -q -- '--show-progress'; } && _wget_opt="-qO- --show-progress --progress=bar:force" || _wget_opt="-qO-"
       ;;
-      *ipv?.icanhazip.com*) _wget_opt="--timeout=1 --tries=1 --quiet";;
+      *icanhazip.com*) _wget_opt="--timeout=1 --tries=1 --quiet";;
       *) _wget_opt="-q -O $2";;
     esac
     wget $_wget_opt $ddl_input
@@ -296,7 +322,7 @@ user_arch() {
     gb_version=5
     gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.4-LinuxARMPreview.tar.gz"
     gb_arch=$gb_version
-    printf "ARM based device is not *officially supported*, use with caution.\n"
+    printf "ARM based device is not *officially supported*, use with caution.\n" | parse_output
     ;;
     *) printf "Architecture not found\n"; exit 1;;
   esac
@@ -338,8 +364,6 @@ sysinfo() {
   disk_info=$(convertsize "$(echo "$df_output" | awk 'NR==2{ print $2 }')")
   disk_usage=$(convertsize "$(echo "$df_output" | awk 'NR==2{ print $3 }')")
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
-  disk_partition=$(df -T . | awk '{ getline; print $1 }')
-  disk_fstype=$(df -T . | awk '{ getline ; print $2 }')
 
   mem_info=$(convertsize "$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo)")
   mem_usage=$(free -m | awk 'NR==2{printf "%s MB (%.0f%% Used)\n", $3,$3*100/$2 }')
@@ -470,21 +494,23 @@ while IFS='|' read -r devname devsize devmp devtype; do
   fio_result=$(printf %s "$fio_result" | tr '#' '\n')
 
   # Build fio output
-  printf "Disk Performance Check ($devtype on $devname):\n"
-  printf "+%75s+\n" | tr ' ' '-'
-  printf "| %-3s | %-11s | %-11s | %-11s | %18s %7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
-  printf "+%75s+\n" | tr ' ' '='
-  echo "$fio_result" |
   {
-    while IFS='|' read -r blocksize read write total read_iops write_iops total_iops; do
-      # Loop over variable
-      printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
-    done
-  }
-  printf "+%75s+\n" | tr ' ' '-'
-  unset fio_result
-  rm -f -- $mountpoint/test.fio
-  echo
+    printf "Disk Performance Check ($devtype on $devname):\n"
+    printf "+%75s+\n" | tr ' ' '-'
+    printf "| %-3s | %-11s | %-11s | %-11s | %18s %7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
+    printf "+%75s+\n" | tr ' ' '='
+    echo "$fio_result" |
+    {
+      while IFS='|' read -r blocksize read write total read_iops write_iops total_iops; do
+        # Loop over variable
+        printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
+      done
+    }
+    printf "+%75s+\n" | tr ' ' '-'
+    unset fio_result
+    rm -f -- $mountpoint/test.fio
+    echo
+  } | parse_output
 done
 }
 
@@ -549,10 +575,12 @@ runiperf() {
 iperf_header() {
   [ "$arg_skip_network" = "true" ] && return 1
   iperflist
-  printf "Network Performance Test:\n"
-  printf "+%86s+\n" | tr ' ' '-'
-  printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
-  printf "+%86s+\n" | tr ' ' '='
+  {
+    printf "Network Performance Test:\n"
+    printf "+%86s+\n" | tr ' ' '-'
+    printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
+    printf "+%86s+\n" | tr ' ' '='
+  } | parse_output
 }
 
 parse_iperf() {
@@ -578,11 +606,11 @@ parse_iperf() {
         fi
         overline
         # End latency test
-        printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
+        printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency" | parse_output
         unset send_speed rec_speed prot
       done
     }
-    printf "+%86s+\n" | tr ' ' '-'
+    printf "+%86s+\n" | tr ' ' '-' | parse_output
   fi
 
   # Internet Protocol Version 6 (IPv6) test
@@ -607,11 +635,11 @@ parse_iperf() {
         fi
         overline
         # End latency test
-        printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency"
+        printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency" | parse_output
         unset send_speed rec_speed prot
       done
     }
-    printf "+%86s+\n" | tr ' ' '-'
+    printf "+%86s+\n" | tr ' ' '-' | parse_output
   fi
 }
 geekbench_test() {
@@ -644,28 +672,35 @@ geekbench_test() {
     gb_var="span"
     overline
   fi
-  # Parsing result
-  if [ -n "$gb_output" ]; then
-    gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
-    gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
-    gbfile="$benchy_path/temp_gb${gb_version}.log"
-    file_grabber $gb_output $gbfile
-    gb_single_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==1')
-    gb_multi_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==2')
-    gb_string=$(gb_string "$gbfile")
-    printf "+%47s+\n" | tr ' ' '-'
-    printf "| %-32s |\n" "$gb_string"
-    printf "+%47s+\n" | tr ' ' '='
-    printf "| %-25s | %-17s |\n" "Single Core" "$gb_single_core"
-    printf "| %-25s | %-17s |\n" "Multi Core" "$gb_multi_core"
-    printf "+%47s+\n" | tr ' ' '-'
-    printf "| %-32s |\n" "$gb_output"
-    printf "+%47s+\n" | tr ' ' '-'
-    rm -f "$gbfile"
-  else
-    printf "%s\n" "Geekbench $gb_version run failed, please retry again"
-    return 1
-  fi
+  {
+    # Parsing result
+    if [ -n "$gb_output" ]; then
+      gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
+      gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
+      gbfile="$benchy_path/temp_gb${gb_version}.log"
+      file_grabber $gb_output $gbfile
+      gb_single_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==1')
+      gb_multi_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==2')
+      gb_string=$(gb_string "$gbfile")
+      totaltime=$(($(awk 'BEGIN{srand();print srand()}')-$startTime))
+      totalmin=$(echo "($totaltime % 3600) / 60" | $bc)
+      totalsec=$(echo "$totaltime % 60" | $bc)
+      printf "+%47s+\n" | tr ' ' '-'
+      printf "| %-32s |\n" "$gb_string"
+      printf "+%47s+\n" | tr ' ' '='
+      printf "| %-18s | %-24s |\n" "Single Core" "$gb_single_core"
+      printf "| %-18s | %-24s |\n" "Multi Core" "$gb_multi_core"
+      printf "+%47s+\n" | tr ' ' '-'
+      printf "| %-32s |\n" "$gb_output"
+      printf "+%47s+\n" | tr ' ' '-'
+      printf "| %-18s | %-24s |\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
+      printf "+%47s+\n" | tr ' ' '-'
+      rm -f "$gbfile"
+    else
+      printf "%s\n" "Geekbench $gb_version run failed, please retry again"
+      return 1
+    fi
+  } | parse_output
 }
 
 main() {
@@ -674,12 +709,12 @@ main() {
   header_intro
   user_arch
   binarycheck
-  sysinfo
+  sysinfo | parse_output
   disk_test
   if iperf_header; then
-    parse_iperf && echo
+    parse_iperf && echo | parse_output
   fi
-  geekbench_test
+  geekbench_test && send_output
   [ "$arg_temp_file" = "true" ] && rm -fr -- "$benchy_path"
 }
 main
