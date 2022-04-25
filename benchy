@@ -13,7 +13,7 @@ header_intro() {
     echo '#   https://github.com/L1so/benchy  #'
     echo '#        AIO Benchmarking tool      #'
     echo '# # # # # # # # # # # # # # # # # # #'
-    echo "#       $currentDate       #"
+    echo "#      $currentDate        #"
     echo '# # # # # # # # # # # # # # # # # # #'
     echo
   } | parse_output
@@ -102,7 +102,7 @@ send_output() {
     if [ "$filegrab" -eq 0 ]; then
       curl -sS -F 'sprunge=<-' http://sprunge.us < /tmp/benchy.log
     elif [ "$filegrab" -eq 1 ]; then
-      cat /tmp/benchy.log | wget -qO - --post-data="sprunge=$(cat)"
+      cat /tmp/benchy.log | wget -qO - --post-data="sprunge=$(cat)" http://sprunge.us
     fi
     )
     printf "| %-18s | %-24s |\n" "Benchy result" "$resulturl"
@@ -449,8 +449,7 @@ while IFS='|' read -r devname devsize devmp devtype; do
     devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
   fi
   # Run fio on each block size
-  set -- "4k" "64k" "512k" "1m"
-  for bs; do
+  for bs in 4k 64k 512k 1m; do
     # Iterate over each defined block_size from array
     printf "%s" "Running fio R+W sampling on $bs block size..."
     fioutput=$(
