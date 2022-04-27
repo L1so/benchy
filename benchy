@@ -516,6 +516,7 @@ done
 iperflist() {
   # iperf3 ipv4 provider list
   ipv4_provider=$(cat << 'EOF'
+Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
 Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
 Uztelecom|Tashkent, UZB|5200-5209|speedtest.uztelecom.uz
@@ -525,6 +526,7 @@ EOF
 )
   # iperf3 ipv6 provider list
   ipv6_provider=$(cat << 'EOF'
+Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
 Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
 Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz
