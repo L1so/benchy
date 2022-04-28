@@ -92,4 +92,3 @@ EOF
   ipv6_provider=$mixedipv6
     ;;
 esac
-echo "$ipv4_provider"
