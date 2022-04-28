@@ -83,7 +83,7 @@ convertsize() {
 
 core_pkg() {
   command -v locale >/dev/null 2>&1 && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
-  for pkg in tput tar lsblk; do
+  for pkg in tput tar; do
     ! command -v $pkg >/dev/null 2>&1 && printf "%s\n" "$pkg missing from your system" && exit 1
   done
 }
@@ -148,7 +148,7 @@ file_grabber() {
       *cdn.geekbench.com*)
       { wget --help 2>&1 | grep -q -- '--show-progress'; } && _wget_opt="-qO- --show-progress --progress=bar:force" || _wget_opt="-qO-"
       ;;
-      *icanhazip.com*) _wget_opt="--timeout=1 --tries=1 --quiet";;
+      *icanhazip.com*) _wget_opt="--timeout=1 --tries=1 -qO-";;
       *) _wget_opt="-q -O $2";;
     esac
     wget $_wget_opt $ddl_input
@@ -224,12 +224,10 @@ binarycheck() {
   # bc binary
   command -v bc >/dev/null 2>&1 && bc="bc" || bc="$bc_path/bc"
   # lsblk binary (from util-linux) + check if -p option supported
-  if command -v lsblk >/dev/null 2>&1; then
-    if ! lsblk --help 2>&1 | grep -q -- '-p,'; then
-      lsblk="$lsblk_path/lsblk"
-    else
-      lsblk="lsblk"
-    fi
+  if command -v lsblk >/dev/null 2>&1 && { lsblk --help 2>&1 | grep -q -- '-p,' ; }; then
+    lsblk="lsblk"
+  else
+    lsblk="$lsblk_path/lsblk"
   fi
 
   # Prioritize curl over wget
