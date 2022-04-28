@@ -271,7 +271,7 @@ binarycheck() {
     if [ -z "$arg_skip_network" ]; then
       file_grabber https://raw.githubusercontent.com/L1so/benchy/main/benchy_geodata $geodata && chmod u+x $geodata
       continent=$(awk -F',' "/$c_code/{ print \$1 }" $continent_data)
-      . $geodata $continent
+      . $geodata "$continent"
     fi
 
     # Download fio if not exist
@@ -563,7 +563,6 @@ runiperf() {
 
 iperf_header() {
   [ "$arg_skip_network" = "true" ] && return 1
-  iperflist
   {
     printf "Network Performance Test:\n"
     printf "+%86s+\n" | tr ' ' '-'
