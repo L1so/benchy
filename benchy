@@ -216,6 +216,8 @@ binarycheck() {
   lsblk_path=$benchy_path/lsblk
   country_code=$benchy_path/country.txt
   country_json=$benchy_path/country.json
+  continent_data=$benchy_path/continent.csv
+  geodata=$benchy_path/geodata
 
   # Fio binary
   command -v fio >/dev/null 2>&1 && fio="fio" || fio="$fio_path/fio"
@@ -229,6 +231,8 @@ binarycheck() {
   else
     lsblk="$lsblk_path/lsblk"
   fi
+  # Country code
+  [ -f $country_code ] && c_code=$(cat $country_code)
 
   # Prioritize curl over wget
   if command -v curl >/dev/null 2>&1; then
@@ -257,9 +261,18 @@ binarycheck() {
     gitlink="https://github.com/L1so/benchy/raw/main/binary"
 
     # Country code
-    file_grabber "ipinfo.io/country" $country_code
+    file_grabber "ipinfo.io/country" $country_code && \
+    c_code=$(cat $country_code)
     # Country.json
     file_grabber "https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw" $country_json
+    # Continent
+    file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_data
+    # Geographical based iperf
+    if [ -z "$arg_skip_network" ]; then
+      file_grabber https://raw.githubusercontent.com/L1so/benchy/main/benchy_geodata $geodata && chmod u+x $geodata
+      continent=$(awk -F',' "/$c_code/{ print \$1 }" $continent_data)
+      . $geodata $continent
+    fi
 
     # Download fio if not exist
     if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
@@ -336,7 +349,7 @@ sysinfo() {
   # Uptime
   uptime_now=$(awk '{print int($1/86400)" Days, "int($1%86400/3600)" Hours, "int(($1%3600)/60)" Minute, "int($1%60)" Seconds "}' /proc/uptime)
   # Location
-  country=$(grep -o '"'"$(cat $country_code)"'": *"[^"]*' "$country_json" | grep -o '[^"]*$')
+  country=$(grep -o '"'"$c_code"'": *"[^"]*' "$country_json" | grep -o '[^"]*$')
 
   if [ "$arg_show_ip" = "true" ]; then
     # IPv4 check
@@ -509,29 +522,6 @@ while IFS='|' read -r devname devsize devmp devtype; do
     echo
   } | parse_output
 done
-}
-
-iperflist() {
-  # iperf3 ipv4 provider list
-  ipv4_provider=$(cat << 'EOF'
-Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
-Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
-Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
-Uztelecom|Tashkent, UZB|5200-5209|speedtest.uztelecom.uz
-Online.net|Paris, FRA|5200-5209|ping.online.net
-WebHorizon|Singapore, SG|9201-9205|iperf.sgp.webhorizon.in
-EOF
-)
-  # iperf3 ipv6 provider list
-  ipv6_provider=$(cat << 'EOF'
-Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
-Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
-Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
-Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz
-Online.net|Paris, FR|5200-5209|ping6.online.net
-WebHorizon|Singapore, SG|9201-9205|iperf.sgp.webhorizon.in
-EOF
-)
 }
 
 runiperf() {
