@@ -225,6 +225,8 @@ gb_string() {
 }
 
 binarycheck() {
+  # Check for user default option
+  [ -f $HOME/.benchy_opt ] && . $HOME/.benchy_opt
   # Building directory
   benchy_path=$HOME/.benchy_file
   fio_path=$benchy_path/fio
@@ -269,39 +271,34 @@ binarycheck() {
   # IPv6 address
   ipv6_address=$(file_grabber ipv6.icanhazip.com)
   [ $? -eq 0 ] && ipv6_status="true" || ipv6_status="false"
-
-  # Country code
-  [ ! -f $country_code ] && file_grabber "ipinfo.io/country" $country_code
-  # Country.json
-  [ ! -f $country_json ] && file_grabber "https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw" $country_json
-  # Continent.csv
-  [ ! -f $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list
-
-  if [ ! -d "$benchy_path" ]; then
+  {
     mkdir -p $benchy_path $geekbench_path
     printf "%s" "Downloading required asset, please wait a moment..."
     gitlink="https://github.com/L1so/benchy/raw/main/binary"
+    # Country code
+    [ ! -e $country_code ] && file_grabber "ipinfo.io/country" $country_code
+    # Country.json
+    [ ! -e $country_json ] && file_grabber "https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw" $country_json
+    # Continent.csv
+    [ ! -e $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list
     # Download fio if not exist
     if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
       mkdir -p $fio_path
       file_grabber "${gitlink}/fio/fio_${arch}" "$fio_path/fio"
       [ $? -eq 0 ] && chmod u+x $fio_path/fio
     fi
-
     # Download iperf3 if not exist
     if [ "$iperf" != "iperf3" ] && [ ! -f "$iperf_path/iperf3" ]; then
       mkdir -p $iperf_path
       file_grabber "${gitlink}/iperf3/iperf3_${arch}" "$iperf_path/iperf3"
       [ $? -eq 0 ] && chmod u+x $iperf_path/iperf3
     fi
-
     # Download bc if not exist
     if [ "$bc" != "bc" ] && [ ! -f "$bc_path/bc" ]; then
       mkdir -p $bc_path
       file_grabber "${gitlink}/bc/bc_${arch}" "$bc_path/bc"
       [ $? -eq 0 ] && chmod u+x $bc_path/bc
     fi
-
     # Download lsblk if not exist
     if [ "$lsblk" != "lsblk" ] && [ ! -f "$lsblk_path/lsblk" ]; then
       mkdir -p $lsblk_path
@@ -309,7 +306,7 @@ binarycheck() {
       [ $? -eq 0 ] && chmod u+x $lsblk_path/lsblk
     fi
     overline
-  fi
+  }
 }
 
 user_arch() {
