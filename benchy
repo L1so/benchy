@@ -1,9 +1,9 @@
 #!/bin/sh
-# Benchy V1.4
+# Benchy V1.5
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v1.4"
+currentVersion="v1.5"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -30,13 +30,14 @@ Options:
   -i, --show-ip           Display server public IP address
   -l, --long-info         Display long complete output
   -p, --parse-only        Only parse basic information (equal to -ndg)
-  -m, --mixed-iperf       Utilize mixed iperf server (default: Based on IP)
+  -r, --iperf-region      Pick iperf server from 7 continent (as, af, eu, na, sa, an, oc, mix)
   -h, --help              Display this help section
   -v, --version           Display version
 EOT
 }
 # BEGIN OPTION PARSING (source https://stackoverflow.com/a/62616466/12289283)
 usage_error () { printf "%s\n%s\n" "$1" "Try 'benchy --help' to view available option" >&2; exit 2; }
+assert_argument () { test "$1" != "$endofline" || { printf "%s\n" "$2 requires an argument" >&2 && exit 2 ; }; }
 endofline=$(echo '\01\03\03\07')
 if [ "$#" != 0 ]; then
   set -- "$@" "$endofline"
@@ -54,10 +55,25 @@ if [ "$#" != 0 ]; then
       arg_skip_disk="true"
       arg_skip_gb="true"
       ;;
-      -m|--mixed-iperf) arg_mixed_network="true";;
+      -r|--iperf-region)
+      assert_argument "$1" "$opt"
+      concode="$1"
+      case "$concode" in
+        [Aa][Ss]) continent="Asia";;
+        [Aa][Ff]) continent="Africa";;
+        [Ee][Uu]) continent="Europe";;
+        [Nn][Aa]) continent="North America";;
+        [Ss][Aa]) continent="South America";;
+        [Aa][Nn]) continent="Antarctica";;
+        [Oo][Cc]) continent="Oceania";;
+        [Mm][Ii][Xx]) continent="Mixed";;
+      esac
+      shift
+      ;;
       -h|--help) display_help; exit 0;;
       -v|--version) printf "%s\n" "$currentVersion"; exit 0;;
       -|''|[!-]*) set -- "$@" "$opt";;
+      --*=*)      set -- "${opt%%=*}" "${opt#*=}" "$@";;
       -[!-]?*)    set -- $(echo "${opt#-}" | sed 's/\(.\)/ -\1/g') "$@";;
       --)         while [ "$1" != "$endofline" ]; do set -- "$@" "$1"; shift; done;;
       -*)         usage_error "Unknown option: '$opt'";;
@@ -254,19 +270,17 @@ binarycheck() {
   ipv6_address=$(file_grabber ipv6.icanhazip.com)
   [ $? -eq 0 ] && ipv6_status="true" || ipv6_status="false"
 
+  # Country code
+  [ ! -f $country_code ] && file_grabber "ipinfo.io/country" $country_code
+  # Country.json
+  [ ! -f $country_json ] && file_grabber "https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw" $country_json
+  # Continent.csv
+  [ ! -f $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list
+
   if [ ! -d "$benchy_path" ]; then
     mkdir -p $benchy_path $geekbench_path
-
     printf "%s" "Downloading required asset, please wait a moment..."
     gitlink="https://github.com/L1so/benchy/raw/main/binary"
-
-    # Country code
-    file_grabber "ipinfo.io/country" $country_code
-    # Country.json
-    file_grabber "https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw" $country_json
-    # Continent.csv
-    file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list
-
     # Download fio if not exist
     if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
       mkdir -p $fio_path
@@ -500,7 +514,7 @@ while IFS='|' read -r devname devsize devmp devtype; do
 
   # Build fio output
   {
-    printf "Disk Performance Check ($devtype on $devname):\n"
+    printf "Disk Performance Check ($devtype on $devname)\n"
     printf "+%75s+\n" | tr ' ' '-'
     printf "| %-3s | %-11s | %-11s | %-11s | %18s %7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
     printf "+%75s+\n" | tr ' ' '='
@@ -524,97 +538,65 @@ iperflist() {
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
 Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
 Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
-Online.net|Paris, FRA|5200-5209|ping.online.net
-WebHorizon|Singapore, SG|9201-9205|iperf.sgp.webhorizon.in
+Wilhelm.tel|Hamburg, DE|5200-5209|speedtest.wtnet.de
 EOF
   )
-  mixedipv6=$(cat << 'EOF'
-Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
-Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
-Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
-Online.net|Paris, FR|5200-5209|ping6.online.net
-WebHorizon|Singapore, SG|9201-9205|iperf.sgp.webhorizon.in
+  mixedipv6=$mixedipv4
+  [ -z "$continent" ] && continent=$(cat $continent_file)
+  case "$continent" in
+    "Asia")
+    ipv4_provider=$(cat << 'EOF'
+Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz
+Biznet|Jakarta, ID|5201-5203|iperf.biznetnetworks.com
 EOF
-  )
-  if [ "$arg_mixed_network" = "true" ]; then
-    continent="Mixed"
+    )
+    ipv6_provider=$ipv4_provider
+    ;;
+    "Africa")
     ipv4_provider=$mixedipv4
     ipv6_provider=$mixedipv6
-  else
-    continent=$(cat $continent_file)
-    case "$continent" in
-      "Asia")
-      ipv4_provider=$(cat << 'EOF'
-Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz
-WebHorizon|Singapore, SG|9201-9205|iperf.sgp.webhorizon.in
-Biznet|Jakarta, ID|5201-5203|iperf.biznetnetworks.com
-EOF
-      )
-      ipv6_provider=$(cat << 'EOF'
-Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz
-WebHorizon|Singapore, SG|9201-9205|iperf.sgp.webhorizon.in
-Biznet|Jakarta, ID|5201-5203|iperf.biznetnetworks.com
-EOF
-      )
-      ;;
-      "Africa")
-      ipv4_provider=$mixedipv4
-      ipv6_provider=$mixedipv6
-      ;;
-      "North America")
-      ipv4_provider=$(cat << 'EOF'
+    ;;
+    "North America")
+    ipv4_provider=$(cat << 'EOF'
 Airstream|Wisconsin, US|5201-5205|iperf.airstreamcomm.net
 Clouvider|Dallas, US|5200-5209|dal.speedtest.clouvider.net
 OVH|Quebec, CA|5201-5210|bhs.proof.ovh.ca
 Hurricane|California, US|5201-5201|iperf.he.net
 EOF
-      )
-      ipv6_provider=$(cat << 'EOF'
-Airstream|Wisconsin, US|5201-5205|iperf.airstreamcomm.net
-Clouvider|Dallas, US|5200-5209|dal.speedtest.clouvider.net
-OVH|Quebec, CA|5201-5210|bhs.proof.ovh.ca
-Hurricane|California, US|5201-5201|iperf.he.net
-EOF
-      )
-      ;;
-      "South America")
-      ipv4_provider=$(cat << 'EOF'
+    )
+    ipv6_provider=$ipv4_provider
+    ;;
+    "South America")
+    ipv4_provider=$(cat << 'EOF'
 Iveloz|Sao Paulo, BR|5201-5209|speedtest.iveloz.net.br
 EOF
-      )
-      ipv6_provider=$(cat << 'EOF'
-Iveloz|Sao Paulo, BR|5201-5209|speedtest.iveloz.net.br
-EOF
-      )
-      ;;
-      "Antarctica")
-      ipv4_provider=$mixedipv4
-      ipv6_provider=$mixedipv6
-      ;;
-      "Europe")
-      ipv4_provider=$(cat << 'EOF'
+    )
+    ipv6_provider=$ipv4_provider
+    ;;
+    "Antarctica")
+    ipv4_provider=$mixedipv4
+    ipv6_provider=$mixedipv6
+    ;;
+    "Europe")
+    ipv4_provider=$(cat << 'EOF'
 Online.net|Paris, FR|5200-5209|ping.online.net
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
 Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
 Wilhelm.tel|Hamburg, DE|5200-5209|speedtest.wtnet.de
 OVH|Roubaix, FR|5201-5210|rbx.proof.ovh.net
 EOF
-      )
-      ipv6_provider=$(cat << 'EOF'
-Online.net|Paris, FR|5200-5209|ping.online.net
-Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
-Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
-WT-NET|Hamburg, DE|5200-5209|speedtest.wtnet.de
-OVH|Roubaix, FR|5201-5210|rbx.proof.ovh.net
-EOF
-      )
-      ;;
-      "Oceania")
-      ipv4_provider=$mixedipv4
-      ipv6_provider=$mixedipv6
-      ;;
-    esac
-  fi
+    )
+    ipv6_provider=$ipv4_provider
+    ;;
+    "Oceania")
+    ipv4_provider=$mixedipv4
+    ipv6_provider=$mixedipv6
+    ;;
+    "Mixed")
+    ipv4_provider=$mixedipv4
+    ipv6_provider=$mixedipv6
+    ;;
+  esac
 }
 
 runiperf() {
