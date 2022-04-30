@@ -227,7 +227,7 @@ gb_string() {
 
 binarycheck() {
   # Check for user default option
-  [ -f $HOME/.benchy_opt ] && . $HOME/.benchy_opt
+  [ -f $HOME/.benchy_opt ] && { printf "%s\n" "Found predefined option !"; . $HOME/.benchy_opt ; }
   # Building directory
   benchy_path=$HOME/.benchy_file
   fio_path=$benchy_path/fio
@@ -369,12 +369,12 @@ sysinfo() {
 
   # Processor information
   if is_installed lscpu; then
-    cpu_model=$(lscpu | awk 'BEGIN{FS=OFS=":"}{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2)}/Model name/{ print $2; exit }')
+    cpu_model=$(lscpu | awk -F: '/Model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}}')
   else
-    cpu_model=$(awk 'BEGIN{FS=OFS=":"}{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2)}/model name/{ print $2; exit }' /proc/cpuinfo)
+    cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}}' /proc/cpuinfo)
   fi
   cpu_core=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
-  cpu_freq=$(awk 'NR==1{ print ($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq)
+  cpu_freq=$(awk 'NR==1{ print ($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("%s MHz\n", $2)}}' /proc/cpuinfo)
   grep -q -m 1 aes /proc/cpuinfo && cpu_aes="$checkmark Enabled" || cpu_aes="$crossmark Disabled"
   grep -q -m 1 'vmx\|svm' /proc/cpuinfo && cpu_virt="$checkmark Enabled" || cpu_virt="$crossmark Disabled"
   virt_type="$(print_virtualization)"
