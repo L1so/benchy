@@ -100,9 +100,9 @@ convertsize() {
 }
 
 core_pkg() {
-  command -v locale >/dev/null 2>&1 && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
+  is_installed locale && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
   for pkg in tput tar; do
-    ! command -v $pkg >/dev/null 2>&1 && printf "%s\n" "$pkg missing from your system" && exit 1
+    ! is_installed $pkg && printf "%s\n" "$pkg missing from your system" && exit 1
   done
 }
 
@@ -146,6 +146,7 @@ format_disk() {
 overline() {
   printf "\r%s" "$(tput el)"
 }
+is_installed() { command -v $1 >/dev/null 2>&1; }
 
 cleanup() {
   tput cnorm
@@ -173,7 +174,7 @@ file_grabber() {
   fi
 }
 print_virtualization() {
-  if command -v systemd-detect-virt >/dev/null 2>&1; then
+  if is_installed systemd-detect-virt; then
     user_virt=$(systemd-detect-virt)
     if [ $? -eq 0 ]; then
       case "$user_virt" in
@@ -185,7 +186,7 @@ print_virtualization() {
       esac
     fi
   fi
-  if command -v dmidecode >/dev/null 2>&1; then
+  if is_installed dmidecode; then
     user_virt=$(dmidecode -s system-product-name 2>/dev/null)
     if [ $? -eq 0 ]; then
       case "$user_virt" in
@@ -240,23 +241,23 @@ binarycheck() {
   continent_file=$benchy_path/continent.txt
 
   # Fio binary
-  command -v fio >/dev/null 2>&1 && fio="fio" || fio="$fio_path/fio"
+  is_installed fio && fio="fio" || fio="$fio_path/fio"
   # Iperf binary
-  command -v iperf3 >/dev/null 2>&1 && iperf="iperf3" || iperf="$iperf_path/iperf3"
+  is_installed iperf3 && iperf="iperf3" || iperf="$iperf_path/iperf3"
   # bc binary
-  command -v bc >/dev/null 2>&1 && bc="bc" || bc="$bc_path/bc"
+  is_installed bc && bc="bc" || bc="$bc_path/bc"
   # lsblk binary (from util-linux) + check if -p option supported
-  if command -v lsblk >/dev/null 2>&1 && { lsblk --help 2>&1 | grep -q -- '-p,' ; }; then
+  if is_installed lsblk && { lsblk --help 2>&1 | grep -q -- '-p,' ; }; then
     lsblk="lsblk"
   else
     lsblk="$lsblk_path/lsblk"
   fi
 
   # Prioritize curl over wget
-  if command -v curl >/dev/null 2>&1; then
+  if is_installed curl; then
     # 0 Implies curl
     filegrab=0
-  elif command -v wget >/dev/null 2>&1; then
+  elif is_installed wget; then
     # 1 Implies wget
     filegrab=1
   else
@@ -337,7 +338,6 @@ user_arch() {
     gb_version=5
     gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.4-LinuxARMPreview.tar.gz"
     gb_arch=$gb_version
-    printf "ARM based device is not *officially supported*, use with caution.\n" | parse_output
     ;;
     *) printf "Architecture not found\n"; exit 1;;
   esac
@@ -368,9 +368,13 @@ sysinfo() {
   fi
 
   # Processor information
-  cpu_model=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
-  cpu_core=$(awk -F: '/model name/ {core++} END {print core}' /proc/cpuinfo)
-  cpu_freq=$(awk -F: ' /cpu MHz/ {freq=$2} END {print freq " MHz"}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
+  if is_installed lscpu; then
+    cpu_model=$(lscpu | awk 'BEGIN{FS=OFS=":"}{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2)}/Model name/{ print $2; exit }')
+  else
+    cpu_model=$(awk 'BEGIN{FS=OFS=":"}{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2)}/model name/{ print $2; exit }' /proc/cpuinfo)
+  fi
+  cpu_core=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
+  cpu_freq=$(awk 'NR==1{ print ($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq)
   grep -q -m 1 aes /proc/cpuinfo && cpu_aes="$checkmark Enabled" || cpu_aes="$crossmark Disabled"
   grep -q -m 1 'vmx\|svm' /proc/cpuinfo && cpu_virt="$checkmark Enabled" || cpu_virt="$crossmark Disabled"
   virt_type="$(print_virtualization)"
