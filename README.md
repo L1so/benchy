@@ -1,4 +1,4 @@
-# Benchy - AIO Benchmark script
+# Benchy - AIO Benchmark Script
 
 Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to optimize the process.
 

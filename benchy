@@ -31,13 +31,14 @@ Options:
   -l, --long-info         Display long complete output
   -p, --parse-only        Only parse basic information (equal to -ndg)
   -r, --iperf-region      Pick iperf server from 7 continent (as, af, eu, na, sa, an, oc, mix)
+  -o, --output-to         Store benchy result to file in given directory (default: Current directory)
   -h, --help              Display this help section
   -v, --version           Display version
 EOT
 }
 # BEGIN OPTION PARSING (source https://stackoverflow.com/a/62616466/12289283)
 usage_error () { printf "%s\n%s\n" "$1" "Try 'benchy --help' to view available option" >&2; exit 2; }
-assert_argument () { test "$1" != "$endofline" || { printf "%s\n" "$2 requires an argument" >&2 && exit 2 ; }; }
+assert_argument () { { test "$1" != "$endofline" && case "$1" in -*) >&2 printf "%s\n" "$opt: Illegal input parameter ($1)"; exit 2;; esac; } || { printf "%s\n" "$2: requires an argument" >&2 && exit 2 ; }; }
 endofline=$(echo '\01\03\03\07')
 if [ "$#" != 0 ]; then
   set -- "$@" "$endofline"
@@ -70,6 +71,13 @@ if [ "$#" != 0 ]; then
       esac
       shift
       ;;
+      -o|--output-to)
+      outputdir=$1
+      case "$outputdir" in
+        -*) outputdir="$(pwd)";;
+        "$endofline") outputdir="$(pwd)";;
+      esac
+      ;;
       -h|--help) display_help; exit 0;;
       -v|--version) printf "%s\n" "$currentVersion"; exit 0;;
       -|''|[!-]*) set -- "$@" "$opt";;
@@ -81,6 +89,16 @@ if [ "$#" != 0 ]; then
     esac
   done
   shift
+fi
+# Check for user default option
+if [ -f $HOME/.benchy_opt ]; then
+  . $HOME/.benchy_opt
+  [ -z "$outputdir" ] && outputdir=$directory
+fi
+outputdir="${outputdir:-/tmp}"
+{ [ ! -d $outputdir ] || [ ! -w $outputdir ] ; } && { >&2 printf "%s\n" "$outputdir does not exist or not writable" && exit 2; }
+if [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; then
+  nocomplete=true
 fi
 # END OPTION PARSING
 
@@ -107,25 +125,27 @@ core_pkg() {
 }
 
 parse_output() {
-  if [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; then
-    tee -a /tmp/benchy.log
+  if [ "$nocomplete" = "true" ]; then
+    tee -a $outputdir/benchy.log
   else
     cat
   fi
 }
 
 send_output() {
-  if [ -f "/tmp/benchy.log" ]; then
+  if [ -f "$outputdir/benchy.log" ]; then
     resulturl=$(
     if [ "$filegrab" -eq 0 ]; then
-      curl -sS -F 'sprunge=<-' http://sprunge.us < /tmp/benchy.log
+      curl -sS -F 'sprunge=<-' http://sprunge.us < $outputdir/benchy.log
     elif [ "$filegrab" -eq 1 ]; then
-      cat /tmp/benchy.log | wget -qO - --post-data="sprunge=$(cat)" http://sprunge.us
+      cat $outputdir/benchy.log | wget -qO - --post-data="sprunge=$(cat)" http://sprunge.us
     fi
     )
-    printf "| %-18s | %-24s |\n" "Benchy result" "$resulturl"
-    printf "+%47s+\n" | tr ' ' '-'
-    [ $? -eq 0 ] && rm -f /tmp/benchy.log
+    {
+      printf "| %-18s | %-24s |\n" "Benchy result" "$resulturl"
+      printf "+%47s+\n" | tr ' ' '-'
+    } | parse_output
+    [ -f "/tmp/benchy.log" ] && rm -f /tmp/benchy.log
   fi
 }
 
@@ -147,6 +167,7 @@ overline() {
   printf "\r%s" "$(tput el)"
 }
 is_installed() { command -v $1 >/dev/null 2>&1; }
+print_space() { printf "%${1}s" | tr ' ' '\n'; }
 
 cleanup() {
   tput cnorm
@@ -226,8 +247,7 @@ gb_string() {
 }
 
 binarycheck() {
-  # Check for user default option
-  [ -f $HOME/.benchy_opt ] && { printf "%s\n" "Found predefined option !"; . $HOME/.benchy_opt ; }
+  [ -f $HOME/.benchy_opt ] && printf "%s\n" "Found predefined option !"
   # Building directory
   benchy_path=$HOME/.benchy_file
   fio_path=$benchy_path/fio
@@ -368,13 +388,13 @@ sysinfo() {
   fi
 
   # Processor information
-  if is_installed lscpu; then
+  if is_installed lscpu && { lscpu 2>&1 | grep -q -- 'Model name' ; }; then
     cpu_model=$(lscpu | awk -F: '/Model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}}')
   else
-    cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}}' /proc/cpuinfo)
+    cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' /proc/cpuinfo)
   fi
   cpu_core=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
-  cpu_freq=$(awk 'NR==1{ print ($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("%s MHz\n", $2)}}' /proc/cpuinfo)
+  cpu_freq=$(awk 'NR==1{ print "@ "($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("@ %s MHz\n", $2); exit}}' /proc/cpuinfo)
   grep -q -m 1 aes /proc/cpuinfo && cpu_aes="$checkmark Enabled" || cpu_aes="$crossmark Disabled"
   grep -q -m 1 'vmx\|svm' /proc/cpuinfo && cpu_virt="$checkmark Enabled" || cpu_virt="$crossmark Disabled"
   virt_type="$(print_virtualization)"
@@ -408,7 +428,7 @@ sysinfo() {
   else
     # Printing the output (short ver.): Server Information
     printf "Server Information\n"; printf "%21s\n" | tr ' ' '-'
-    printf "%-11s : %-10s\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "CPU" "$cpu_model" "Core" "$cpu_core @ $cpu_freq" \
+    printf "%-11s : %-10s\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "CPU" "$cpu_model" "Core" "$cpu_core $cpu_freq" \
     "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
     echo
 
@@ -417,10 +437,10 @@ sysinfo() {
     printf "%-11s : %-10s\n" "Disk" "$disk_info" "Disk Usage" "$disk_usage ($disk_percentage Used)" "Mem" "$mem_info" \
     "Mem Usage" "$mem_usage" "Swap" "$swap_info"
   fi
-  echo
 }
 disk_test() {
   [ "$arg_skip_disk" = "true" ] && return 1
+  print_space 1
   {
     $lsblk -nPpbo KNAME,SIZE,PKNAME,MOUNTPOINT,FSTYPE |
 awk -F'="|" ?' -v OFS='|' '
@@ -529,7 +549,6 @@ while IFS='|' read -r devname devsize devmp devtype; do
     printf "+%75s+\n" | tr ' ' '-'
     unset fio_result
     rm -f -- $mountpoint/test.fio
-    echo
   } | parse_output
 done
 }
@@ -562,7 +581,7 @@ EOF
 Airstream|Wisconsin, US|5201-5205|iperf.airstreamcomm.net
 Clouvider|Dallas, US|5200-5209|dal.speedtest.clouvider.net
 OVH|Quebec, CA|5201-5210|bhs.proof.ovh.ca
-Hurricane|California, US|5201-5201|iperf.he.net
+Clouvider|Los Angeles, US|5200-5209|la.speedtest.clouvider.net
 EOF
     )
     ipv6_provider=$ipv4_provider
@@ -639,6 +658,7 @@ runiperf() {
 
 iperf_header() {
   [ "$arg_skip_network" = "true" ] && return 1
+  print_space 1
   iperflist
   {
     printf "Network Performance Test (Region: $continent)\n"
@@ -740,6 +760,7 @@ geekbench_test() {
   {
     # Parsing result
     if [ -n "$gb_output" ]; then
+      print_space 1
       gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
       gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
       gbfile="$benchy_path/temp_gb${gb_version}.log"
@@ -777,7 +798,7 @@ main() {
   sysinfo | parse_output
   disk_test
   if iperf_header; then
-    parse_iperf && echo | parse_output
+    parse_iperf | parse_output
   fi
   geekbench_test && send_output
   [ "$arg_temp_file" = "true" ] && rm -fr -- "$benchy_path"
