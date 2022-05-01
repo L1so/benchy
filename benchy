@@ -31,7 +31,7 @@ Options:
   -l, --long-info         Display long complete output
   -p, --parse-only        Only parse basic information (equal to -ndg)
   -r, --iperf-region      Pick iperf server from 7 continent (as, af, eu, na, sa, an, oc, mix)
-  -o, --output-to         Store benchy result to file in given directory (default: Current directory)
+  -o, --output            Store benchy result to file in given directory (default: Current directory)
   -h, --help              Display this help section
   -v, --version           Display version
 EOT
@@ -71,7 +71,8 @@ if [ "$#" != 0 ]; then
       esac
       shift
       ;;
-      -o|--output-to)
+      -o|--output)
+      arg_output_file="true"
       outputdir=$1
       case "$outputdir" in
         -*) outputdir="$(pwd)";;
@@ -90,6 +91,7 @@ if [ "$#" != 0 ]; then
   done
   shift
 fi
+# END OPTION PARSING
 # Check for user default option
 if [ -f $HOME/.benchy_opt ]; then
   . $HOME/.benchy_opt
@@ -97,10 +99,7 @@ if [ -f $HOME/.benchy_opt ]; then
 fi
 outputdir="${outputdir:-/tmp}"
 { [ ! -d $outputdir ] || [ ! -w $outputdir ] ; } && { >&2 printf "%s\n" "$outputdir does not exist or not writable" && exit 2; }
-if [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; then
-  nocomplete=true
-fi
-# END OPTION PARSING
+if [ -n "$arg_output_file" ] || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi
 
 # Source https://gist.github.com/Akianonymus/25cfa570cb66821ab61846ceb0f9ca07
 convertsize() {
@@ -123,9 +122,8 @@ core_pkg() {
     ! is_installed $pkg && printf "%s\n" "$pkg missing from your system" && exit 1
   done
 }
-
 parse_output() {
-  if [ "$nocomplete" = "true" ]; then
+  if [ "$parseit" = "true" ]; then
     tee -a $outputdir/benchy.log
   else
     cat
@@ -145,8 +143,8 @@ send_output() {
       printf "| %-18s | %-24s |\n" "Benchy result" "$resulturl"
       printf "+%47s+\n" | tr ' ' '-'
     } | parse_output
-    [ -f "/tmp/benchy.log" ] && rm -f /tmp/benchy.log
   fi
+  rm -f /tmp/benchy.log || true
 }
 
 format_disk() {
@@ -167,7 +165,7 @@ overline() {
   printf "\r%s" "$(tput el)"
 }
 is_installed() { command -v $1 >/dev/null 2>&1; }
-print_space() { printf "%${1}s" | tr ' ' '\n'; }
+print_space() { { printf "%${1}s" | tr ' ' '\n' ; } | parse_output; }
 
 cleanup() {
   tput cnorm
@@ -686,9 +684,7 @@ parse_iperf() {
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
         latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.0f ms\n", $5 }')
-        if [ -z "$latency" ]; then
-          latency="busy"
-        fi
+        latency="${latency:-busy}"
         overline
         # End latency test
         printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency" | parse_output
@@ -715,9 +711,7 @@ parse_iperf() {
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
         latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.0f ms\n", $5 }')
-        if [ -z "$latency" ]; then
-          latency="busy"
-        fi
+        latency="${latency:-busy}"
         overline
         # End latency test
         printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency" | parse_output
@@ -732,6 +726,7 @@ geekbench_test() {
   [ "$arg_skip_gb" = "true" ] && return 1
   # Exit if ipv6 only
   [ "$ipv4_status" = "false" ] && printf "%s\n" "Geekbench doesn't work over ipv6, exiting test.." && return 1
+  print_space 1
   if [ "$gb_version" -eq 5 ]; then
     # Geekbench 5
     if [ ! -f "$geekbench_path/geekbench5" ]; then
@@ -760,7 +755,6 @@ geekbench_test() {
   {
     # Parsing result
     if [ -n "$gb_output" ]; then
-      print_space 1
       gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
       gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
       gbfile="$benchy_path/temp_gb${gb_version}.log"
@@ -798,7 +792,7 @@ main() {
   sysinfo | parse_output
   disk_test
   if iperf_header; then
-    parse_iperf | parse_output
+    parse_iperf
   fi
   geekbench_test && send_output
   [ "$arg_temp_file" = "true" ] && rm -fr -- "$benchy_path"
