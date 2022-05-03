@@ -8,13 +8,13 @@ header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
   {
-    echo '# # # # # # # # # # # # # # # # # # #'
-    echo "#            Benchy $currentVersion            #"
-    echo '#   https://github.com/L1so/benchy  #'
-    echo '#        AIO Benchmarking tool      #'
-    echo '# # # # # # # # # # # # # # # # # # #'
-    echo "#      $currentDate        #"
-    echo '# # # # # # # # # # # # # # # # # # #'
+    echo '# # # # # # # # # # # # # # # # # # # #'
+    echo "#             Benchy $currentVersion             #"
+    echo '#    https://github.com/L1so/benchy   #'
+    echo '#         AIO Benchmarking tool       #'
+    echo '# # # # # # # # # # # # # # # # # # # #'
+    echo "#       $currentDate        #"
+    echo '# # # # # # # # # # # # # # # # # # # #'
     echo
   } | parse_output
 }
@@ -453,7 +453,7 @@ awk -F'="|" ?' -v OFS='|' '
     mountpoint !~ "^/" { next }
     size > sizes[pkname] {
         knames[pkname] = kname
-        sizes[pkname] = size
+        sizes[pkname] = int(size/1024/1024/1024  + 0.5)
         mountpoints[pkname] = mountpoint
         fstypes[pkname] = fstype
     }
@@ -465,27 +465,19 @@ awk -F'="|" ?' -v OFS='|' '
   } |
 while IFS='|' read -r devname devsize devmp devtype; do
   mountpoint=$devmp
-  disklimit=2000000000
+  disklimit=2
   case "$arch" in
     *arm*|*aarch*)
-    if [ "$devmp" = "/" ]; then
-      disklimit=512000000
-    fi
-    ;;
+    [ "$mountpoint" = "/" ] && disklimit="0.5";;
   esac
-  # Skip root partition
+  [ -z "$devtype" ] && devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
   [ "$mountpoint" = "/" ] && mountpoint=$benchy_path
-  # Skip disk that has less then given limit
-  if [ $devsize -lt $disklimit ]; then
-    printf "%s\n" "Too little storage on $devname"
-    continue
-  fi
-  if [ ! -w "$mountpoint" ]; then
+  if [ "$(echo "$disklimit > $devsize" | $bc -l)" -eq 1 ]; then
+    printf "%s\n" "Insufficient storage on $devname"
+    continue 2
+  elif [ ! -w "$mountpoint" ]; then
     printf "%s\n" "No write permission to $mountpoint, skipping disk"
-    continue
-  fi
-  if [ -z "$devtype" ]; then
-    devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
+    continue 2
   fi
   # Run fio on each block size
   for bs in 4k 64k 512k 1m; do
