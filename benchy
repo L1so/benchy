@@ -8,13 +8,13 @@ header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
   {
-    echo '# # # # # # # # # # # # # # # # # # # #'
-    echo "#             Benchy $currentVersion             #"
-    echo '#    https://github.com/L1so/benchy   #'
-    echo '#         AIO Benchmarking tool       #'
-    echo '# # # # # # # # # # # # # # # # # # # #'
-    echo "#       $currentDate        #"
-    echo '# # # # # # # # # # # # # # # # # # # #'
+    echo '# # # # # # # # # # # # # # # # # # # # #'
+    echo "#             Benchy $currentVersion               #"
+    echo '#    https://github.com/L1so/benchy     #'
+    echo '#         AIO Benchmarking tool         #'
+    echo '# # # # # # # # # # # # # # # # # # # # #'
+    printf '%s\t%s\t\t%s\n' "#" "$currentDate" "#"
+    echo '# # # # # # # # # # # # # # # # # # # # #'
     echo
   } | parse_output
 }
@@ -473,11 +473,12 @@ while IFS='|' read -r devname devsize devmp devtype; do
   [ -z "$devtype" ] && devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
   [ "$mountpoint" = "/" ] && mountpoint=$benchy_path
   if [ "$(echo "$disklimit > $devsize" | $bc -l)" -eq 1 ]; then
-    printf "%s\n" "Insufficient storage on $devname"
-    continue 2
-  elif [ ! -w "$mountpoint" ]; then
-    printf "%s\n" "No write permission to $mountpoint, skipping disk"
-    continue 2
+    printf "%s\n" "Insufficient storage on $devname" | parse_output
+    continue
+  fi
+  if [ ! -w "$mountpoint" ]; then
+    printf "%s\n" "No write permission to $mountpoint, skipping disk" | parse_output
+    continue
   fi
   # Run fio on each block size
   for bs in 4k 64k 512k 1m; do
