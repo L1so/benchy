@@ -429,7 +429,7 @@ sysinfo() {
 
     # Printing the output: Processor Information
     printf "Processor Information\n"; printf "%21s\n" | tr ' ' '-'
-    printf "%-11s : %-10s\n" "Model" "$cpu_model" "Core" "$cpu_core @ $cpu_freq" "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
+    printf "%-11s : %-10s\n" "Model" "$cpu_model" "Core" "$cpu_core $cpu_freq" "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
     echo
 
     # Printing the output: Disk & Memory Usage
