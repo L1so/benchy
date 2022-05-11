@@ -53,6 +53,7 @@ if [ "$#" != 0 ]; then
       -i|--show-ip) arg_show_ip="true";;
       -l|--long-output) arg_long_output="true";;
       -s|--speedtest) arg_prefer_speedtest="true";;
+      -x|--dev-branch) branch="dev";;
       -p|--parse-only)
       arg_skip_network="true"
       arg_skip_disk="true"
@@ -120,8 +121,10 @@ convertsize() {
 core_pkg() {
   is_installed locale && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
   for pkg in tput tar; do
-    ! is_installed $pkg && printf "%s\n" "$pkg missing from your system"
-    exit 1
+    if ! is_installed $pkg; then
+      printf "%s\n" "$pkg missing from your system"
+      exit 1
+    fi
   done
 }
 parse_output() {
@@ -298,7 +301,7 @@ binarycheck() {
   {
     mkdir -p $benchy_path $geekbench_path
     printf "%s" "Downloading required asset, please wait a moment..."
-    gitlink="https://github.com/L1so/benchy/raw/main/binary"
+    gitlink="https://github.com/L1so/benchy/raw/${branch:-main}/binary"
     # Country code
     [ ! -e $country_code ] && file_grabber "ipinfo.io/country" $country_code
     # Country.json
