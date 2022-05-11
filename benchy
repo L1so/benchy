@@ -1,9 +1,9 @@
 #!/bin/sh
-# Benchy V1.6
+# Benchy V1.7
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v1.6"
+currentVersion="v1.7"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -23,15 +23,16 @@ display_help() {
   cat <<'EOT'
 Usage: benchy [options]
 Options:
+  -o, --output            Store benchy result to file in given directory (default: Current directory)
   -t, --temp-file         Remove benchy dependencies after run (default: keep storing)
-  -n, --skip-network      Skip iperf3 network measurement test
+  -n, --skip-network      Skip network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
+  -r, --region=ARG        Specify region to bench network (as, af, eu, na, sa, oc, mix)
+  -s, --speedtest         Prefer speedtest in place of iperf3
   -i, --show-ip           Display server public IP address
   -l, --long-info         Display long complete output
   -p, --parse-only        Only parse basic information (equal to -ndg)
-  -r, --iperf-region      Pick iperf server from 7 continent (as, af, eu, na, sa, an, oc, mix)
-  -o, --output            Store benchy result to file in given directory (default: Current directory)
   -h, --help              Display this help section
   -v, --version           Display version
 EOT
@@ -51,12 +52,13 @@ if [ "$#" != 0 ]; then
       -g|--skip-gb) arg_skip_gb="true";;
       -i|--show-ip) arg_show_ip="true";;
       -l|--long-output) arg_long_output="true";;
+      -s|--speedtest) arg_prefer_speedtest="true";;
       -p|--parse-only)
       arg_skip_network="true"
       arg_skip_disk="true"
       arg_skip_gb="true"
       ;;
-      -r|--iperf-region)
+      -r|--region)
       assert_argument "$1" "$opt"
       concode="$1"
       case "$concode" in
@@ -65,7 +67,6 @@ if [ "$#" != 0 ]; then
         [Ee][Uu]) continent="Europe";;
         [Nn][Aa]) continent="North America";;
         [Ss][Aa]) continent="South America";;
-        [Aa][Nn]) continent="Antarctica";;
         [Oo][Cc]) continent="Oceania";;
         [Mm][Ii][Xx]) continent="Mixed";;
       esac
@@ -119,7 +120,8 @@ convertsize() {
 core_pkg() {
   is_installed locale && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
   for pkg in tput tar; do
-    ! is_installed $pkg && printf "%s\n" "$pkg missing from your system" && exit 1
+    ! is_installed $pkg && printf "%s\n" "$pkg missing from your system"
+    exit 1
   done
 }
 parse_output() {
@@ -250,6 +252,7 @@ binarycheck() {
   benchy_path=$HOME/.benchy_file
   fio_path=$benchy_path/fio
   iperf_path=$benchy_path/iperf3
+  speedtest_path=$benchy_path/speedtest
   geekbench_path="${benchy_path}/gb${gb_version}"
   bc_path=$benchy_path/bc
   lsblk_path=$benchy_path/lsblk
@@ -261,7 +264,7 @@ binarycheck() {
   # Fio binary
   is_installed fio && fio="fio" || fio="$fio_path/fio"
   # Iperf binary
-  is_installed iperf3 && iperf="iperf3" || iperf="$iperf_path/iperf3"
+  [ -z "$arg_prefer_speedtest" ] && is_installed iperf3 && iperf="iperf3" || iperf="$iperf_path/iperf3"
   # bc binary
   is_installed bc && bc="bc" || bc="$bc_path/bc"
   # lsblk binary (from util-linux) + check if -p option supported
@@ -270,6 +273,8 @@ binarycheck() {
   else
     lsblk="$lsblk_path/lsblk"
   fi
+  # Speedtest binary
+  speedtest="$speedtest_path/speedtest"
 
   # Prioritize curl over wget
   if is_installed curl; then
@@ -307,10 +312,15 @@ binarycheck() {
       [ $? -eq 0 ] && chmod u+x $fio_path/fio
     fi
     # Download iperf3 if not exist
-    if [ "$iperf" != "iperf3" ] && [ ! -f "$iperf_path/iperf3" ]; then
+    if [ -z "$arg_prefer_speedtest" ] && [ "$iperf" != "iperf3" ] && [ ! -f "$iperf_path/iperf3" ]; then
       mkdir -p $iperf_path
       file_grabber "${gitlink}/iperf3/iperf3_${arch}" "$iperf_path/iperf3"
       [ $? -eq 0 ] && chmod u+x $iperf_path/iperf3
+    else
+      # Download speedtest if not exist
+      mkdir -p $speedtest_path
+      file_grabber "https://install.speedtest.net/app/cli/ookla-speedtest-1.1.1-linux-${arch}.tgz" "$speedtest_path/ookla.tgz"
+      tar -xzf "$speedtest_path/ookla.tgz" -C $speedtest_path && rm -f "$speedtest_path/ookla.tgz"
     fi
     # Download bc if not exist
     if [ "$bc" != "bc" ] && [ ! -f "$bc_path/bc" ]; then
@@ -334,14 +344,14 @@ user_arch() {
   arch=$(uname -m)
   case "$arch" in
     *x86_64*)
-    arch="x64"
+    arch="x86_64"
     fio_size="2G"
     gb_version=5
     gb_arch="x86_64"
     gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.4-Linux.tar.gz"
     ;;
     *i?86*)
-    arch="x86"
+    arch="i386"
     fio_size="2G"
     gb_version=4
     gb_arch="x86_32"
@@ -350,7 +360,7 @@ user_arch() {
     *arm*|*aarch*)
     case "$(getconf LONG_BIT)" in
       *64*) arch="aarch64";;
-      *) arch="arm";;
+      *) arch="armhf";;
     esac
     fio_size="512M"
     gb_version=5
@@ -451,6 +461,7 @@ awk -F'="|" ?' -v OFS='|' '
     }
     pkname !~ "^/" { next }
     mountpoint !~ "^/" { next }
+    seen[kname]++ { next }
     size > sizes[pkname] {
         knames[pkname] = kname
         sizes[pkname] = int(size/1024/1024/1024  + 0.5)
@@ -544,70 +555,125 @@ while IFS='|' read -r devname devsize devmp devtype; do
 done
 }
 
-iperflist() {
-  mixedipv4=$(cat << 'EOF'
+netlist() {
+  [ -z "$continent" ] && continent=$(cat $continent_file)
+  if [ -z "$arg_prefer_speedtest" ]; then
+    mixedipv4=$(cat << 'EOF'
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
 Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
 Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
 Wilhelm.tel|Hamburg, DE|5200-5209|speedtest.wtnet.de
 EOF
-  )
-  mixedipv6=$mixedipv4
-  [ -z "$continent" ] && continent=$(cat $continent_file)
-  case "$continent" in
-    "Asia")
-    ipv4_provider=$(cat << 'EOF'
+    )
+    mixedipv6=$mixedipv4
+    case "$continent" in
+      "Asia")
+      ipv4_provider=$(cat << 'EOF'
 Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz
 Biznet|Jakarta, ID|5201-5203|iperf.biznetnetworks.com
 EOF
-    )
-    ipv6_provider=$ipv4_provider
-    ;;
-    "Africa")
-    ipv4_provider=$mixedipv4
-    ipv6_provider=$mixedipv6
-    ;;
-    "North America")
-    ipv4_provider=$(cat << 'EOF'
+      )
+      ipv6_provider=$ipv4_provider
+      ;;
+      "Africa")
+      ipv4_provider=$mixedipv4
+      ipv6_provider=$mixedipv6
+      ;;
+      "North America")
+      ipv4_provider=$(cat << 'EOF'
 Airstream|Wisconsin, US|5201-5205|iperf.airstreamcomm.net
 Clouvider|Dallas, US|5200-5209|dal.speedtest.clouvider.net
 OVH|Quebec, CA|5201-5210|bhs.proof.ovh.ca
 Clouvider|Los Angeles, US|5200-5209|la.speedtest.clouvider.net
 EOF
-    )
-    ipv6_provider=$ipv4_provider
-    ;;
-    "South America")
-    ipv4_provider=$(cat << 'EOF'
+      )
+      ipv6_provider=$ipv4_provider
+      ;;
+      "South America")
+      ipv4_provider=$(cat << 'EOF'
 Iveloz|Sao Paulo, BR|5201-5209|speedtest.iveloz.net.br
 EOF
-    )
-    ipv6_provider=$ipv4_provider
-    ;;
-    "Antarctica")
-    ipv4_provider=$mixedipv4
-    ipv6_provider=$mixedipv6
-    ;;
-    "Europe")
-    ipv4_provider=$(cat << 'EOF'
+      )
+      ipv6_provider=$ipv4_provider
+      ;;
+      "Europe")
+      ipv4_provider=$(cat << 'EOF'
 Online.net|Paris, FR|5200-5209|ping.online.net
 Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
 Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
 Wilhelm.tel|Hamburg, DE|5200-5209|speedtest.wtnet.de
 OVH|Roubaix, FR|5201-5210|rbx.proof.ovh.net
 EOF
-    )
-    ipv6_provider=$ipv4_provider
-    ;;
-    "Oceania")
-    ipv4_provider=$mixedipv4
-    ipv6_provider=$mixedipv6
-    ;;
-    "Mixed")
-    ipv4_provider=$mixedipv4
-    ipv6_provider=$mixedipv6
-    ;;
-  esac
+      )
+      ipv6_provider=$ipv4_provider
+      ;;
+      "Oceania")
+      ipv4_provider=$mixedipv4
+      ipv6_provider=$mixedipv6
+      ;;
+      "Mixed")
+      ipv4_provider=$mixedipv4
+      ipv6_provider=$mixedipv6
+      ;;
+    esac
+  else
+    case "$continent" in
+      "Asia")
+      spt_provider=$(cat << 'EOF'
+Moratel|Jakarta, ID|jkt-speedtest.moratelindo.io
+Exabytes|Kuala Lumpur, MY|ookla.mschosting.com
+SingTel|Singapore, SG|speedtest.singnet.com.sg
+GLBB|Tokyo, JP|speedtest-xg-tokyo.glbb.ne.jp
+Airtel|Chennai, IN|speedtestchn.airtelbroadband.in
+EOF
+      );;
+      "Africa")
+      spt_provider=$(cat << 'EOF'
+Seacom|Cape Town, ZA|sl-01-cpt.za.seacomnet.com
+Vodacom|Lagos, NG|speedtest1.vodacom.com.ng
+Sonatel|Dakar, SN|mondebit1.orange.sn
+Orange TN|Ariana, TN|sp1.orange.tn
+Airtel|Brazzaville, CG|ooklabzv.cg.airtel.com
+EOF
+      );;
+      "Europe")
+      spt_provider=$(cat << 'EOF'
+TestDebit|Marseille, FR|marseille.testdebit.info
+Wilhelm.Tel|Norderstedt, DE|speedtest.wtnet.de
+Quadhost|London, GB|uk-st1.quadhost.net
+Skynet|Warsaw, PL|speedtest.skynet.net.pl
+Vodafone|Milan, IT|speedtest.vodafone.it
+EOF
+      );;
+      "North America")
+      spt_provider=$(cat << 'EOF'
+Sprint|Washington DC, US|ookla1.washdc.sprintadp.net
+Marcatel|Mexico City, MX|ooklamx.marcatel.com
+Westnet|Calgary, CA|speedtest.westnet.ca
+Telus|Edmonton, CA|edmonton.speedtest.telus.com
+Hivelocity|Dallas, US|speedtest.dal.hivelocity.net
+EOF
+        );;
+        "South America")
+        spt_provider=$(cat << 'EOF'
+Orbitel|Brasilia, BR|speedtest.orbitel.com.br
+TLINK|Santiago, CL|speedtest.tlink.cl
+Avantel|Bogota, CO|speedtest.avantel.com.co
+DirecTV|Buenos Aires, AR|speedtest.directvnet.com.ar
+RCTELECOM|Sao Paulo, BR|speedtest.rctelecomnet.com.br
+EOF
+        );;
+        "Oceania")
+        spt_provider=$(cat << 'EOF'
+CareTel|Sydney, AU|sp1.caretel.com.au
+Telstra|Sydney, AU|syd1.speedtest.telstra.net
+MyRepublic|Auckland, NZ|speedtest.myrepublic.co.nz
+Lightwire|Hamilton, NZ|speedtest.lightwire.co.nz
+Connect|Suva, FJ|speedtestnet.connect.com.fj
+EOF
+        );;
+    esac
+  fi
 }
 
 runiperf() {
@@ -647,15 +713,22 @@ runiperf() {
   done
 }
 
-iperf_header() {
+net_header() {
   [ "$arg_skip_network" = "true" ] && return 1
   print_space 1
-  iperflist
+  netlist
   {
-    printf "Network Performance Test (Region: $continent)\n"
-    printf "+%86s+\n" | tr ' ' '-'
-    printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
-    printf "+%86s+\n" | tr ' ' '='
+    if [ -z "$arg_prefer_speedtest" ]; then
+      printf "Network Performance Test (Region: $continent)\n"
+      printf "+%86s+\n" | tr ' ' '-'
+      printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
+      printf "+%86s+\n" | tr ' ' '='
+    else
+      printf "Ookla Network Speedtest (Region: $continent)\n"
+      printf "+%88s+\n" | tr ' ' '-'
+      printf "| %-11s | %-17s | %-12s | %-12s | %-10s | %-9s |\n" "Provider" "Location" "Upload" "Download" "Data Used" "Latency"
+      printf "+%88s+\n" | tr ' ' '='
+    fi
   } | parse_output
 }
 
@@ -713,6 +786,23 @@ parse_iperf() {
     }
     printf "+%86s+\n" | tr ' ' '-' | parse_output
   fi
+}
+parse_speedtest() {
+  echo "$spt_provider" |
+  {
+    while IFS='|' read -r provider loc url; do
+      printf %s "Performing Ookla Speedtest to $provider"
+      spt_res=$($speedtest --accept-gdpr --accept-license --progress=no --host $url --format=csv 2>/dev/null)
+      sptval=$?
+      overline
+      if [ "$sptval" -ne 0 ]; then
+        printf "| %-11s | %-17s | %-12s | %-12s | %-10s | %-9s |\n" "$provider" "$loc" "Failed" "To" "Get" "Data"
+      else
+        printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, '{gsub(/"/, ""); printf "| %-11s | %-17s | %.1f %-6s | %.1f %-6s | %.1f %-6s | %-6.1f %-1.16s |\n", prov, loc, $7/125000, "MB/s", $6/125000, "MB/s", ($8+$9)/(1000*1000*1000), "GB", $3, "ms" }' | parse_output
+      fi
+    done
+  }
+  printf "+%88s+\n" | tr ' ' '-' | parse_output
 }
 geekbench_test() {
   # Skip geekbench on input argument
@@ -784,8 +874,8 @@ main() {
   binarycheck
   sysinfo | parse_output
   disk_test
-  if iperf_header; then
-    parse_iperf
+  if net_header; then
+    [ -n "$arg_prefer_speedtest" ] && parse_speedtest || parse_iperf
   fi
   geekbench_test && send_output
   [ "$arg_temp_file" = "true" ] && rm -fr -- "$benchy_path"
