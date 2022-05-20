@@ -1,9 +1,9 @@
 #!/bin/sh
-# Benchy V1.7
+# Benchy V1.8
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v1.7"
+currentVersion="v1.8"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -74,7 +74,7 @@ if [ "$#" != 0 ]; then
       shift
       ;;
       -o|--output)
-      arg_output_file="true"
+      arg_output_file="true"; [ -f "${PWD}/benchy.log" ] && rm -f "${PWD}/benchy.log"
       outputdir=$1
       case "$outputdir" in
         -*) outputdir="$(pwd)";;
@@ -300,7 +300,7 @@ binarycheck() {
   [ $? -eq 0 ] && ipv6_status="true" || ipv6_status="false"
   {
     mkdir -p $benchy_path $geekbench_path
-    printf "%s" "Downloading required asset, please wait a moment..."
+    printf "%s" "Fetching required asset, please wait a moment..."
     gitlink="https://github.com/L1so/benchy/raw/${branch:-main}/binary"
     # Country code
     [ ! -e $country_code ] && file_grabber "ipinfo.io/country" $country_code
@@ -691,13 +691,8 @@ runiperf() {
   while [ $sn -le 5 ]; do
     printf "%s" "Performing iperf3 send test to $run_host (Attempt #$sn of 5)"
     vport=$(shuf -i $run_port -n 1)
-    iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 2>/dev/null)
-    if [ "$?" -eq 0 ]; then
-      send_speed=$(echo "$iperflog" | awk '/SUM/ && /sender/{ print $6, $7 }')
-      sleep 1 && overline && break
-    else
-      sleep 3 && overline
-    fi
+    iperf_sendlog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 --format k 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
+    if [ "$?" -eq 0 ]; then sleep 1 && overline && break; else sleep 3 && overline; fi
     sn=$(( sn + 1 ))
   done
   # Receive test 5 times
@@ -705,13 +700,8 @@ runiperf() {
   while [ $rn -le 5 ]; do
     printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$rn of 5)"
     vport=$(shuf -i $run_port -n 1)
-    iperflog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 -R 2>/dev/null)
-    if [ "$?" -eq 0 ]; then
-      rec_speed=$(echo "$iperflog" | awk '/SUM/ && /receiver/{ print $6, $7 }')
-      sleep 1 && overline && break
-    else
-      sleep 3 && overline
-    fi
+    iperf_reclog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 --format k -R 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
+    if [ "$?" -eq 0 ]; then sleep 1 && overline && break; else sleep 3 && overline; fi
     rn=$(( rn + 1 ))
   done
 }
@@ -723,14 +713,14 @@ net_header() {
   {
     if [ -z "$arg_prefer_speedtest" ]; then
       printf "Network Performance Test (Region: $continent)\n"
-      printf "+%86s+\n" | tr ' ' '-'
-      printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
-      printf "+%86s+\n" | tr ' ' '='
+      printf "+%81s+\n" | tr ' ' '-'
+      printf "| %-5s | %-11s | %-15s | %-12s | %-12s | %-9s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
+      printf "+%81s+\n" | tr ' ' '='
     else
       printf "Ookla Network Speedtest (Region: $continent)\n"
-      printf "+%88s+\n" | tr ' ' '-'
-      printf "| %-11s | %-17s | %-12s | %-12s | %-10s | %-9s |\n" "Provider" "Location" "Upload" "Download" "Data Used" "Latency"
-      printf "+%88s+\n" | tr ' ' '='
+      printf "+%87s+\n" | tr ' ' '-'
+      printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "Provider" "Location" "Upload" "Download" "Data Used" "Latency"
+      printf "+%87s+\n" | tr ' ' '='
     fi
   } | parse_output
 }
@@ -744,25 +734,18 @@ parse_iperf() {
     {
       while IFS='|' read -r provider loc port url; do
         runiperf $url $port $provider $iperf_flags
-        case "$send_speed" in
-          ""|*0.00*) send_speed="busy";;
-        esac
-        case "$rec_speed" in
-          ""|*0.00*) rec_speed="busy";;
-        esac
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
-        latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.0f ms\n", $5 }')
-        latency="${latency:-busy}"
+        latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency" | parse_output
+        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] );} else{ return sprintf("%1.5s", "busy") } }
+        BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output
         unset send_speed rec_speed prot
       done
     }
-    printf "+%86s+\n" | tr ' ' '-' | parse_output
+    printf "+%81s+\n" | tr ' ' '-' | parse_output
   fi
-
   # Internet Protocol Version 6 (IPv6) test
   if [ "$ipv6_status" = "true" ]; then
     iperf_flags="-6"
@@ -771,23 +754,17 @@ parse_iperf() {
     {
       while IFS='|' read -r provider loc port url; do
         runiperf $url $port $provider $iperf_flags
-        case "$send_speed" in
-          ""|*0.00*) send_speed="busy";;
-        esac
-        case "$rec_speed" in
-          ""|*0.00*) rec_speed="busy";;
-        esac
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
-        latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.0f ms\n", $5 }')
-        latency="${latency:-busy}"
+        latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        printf "| %-5s | %-11s | %-15s | %-15s | %-15s | %-8s |\n" "$prot" "$provider" "$loc" "$send_speed" "$rec_speed" "$latency" | parse_output
+        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] );} else{ return sprintf("%1.5s", "busy") } }
+        BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output
         unset send_speed rec_speed prot
       done
     }
-    printf "+%86s+\n" | tr ' ' '-' | parse_output
+    printf "+%81s+\n" | tr ' ' '-' | parse_output
   fi
 }
 parse_speedtest() {
@@ -799,13 +776,13 @@ parse_speedtest() {
       sptval=$?
       overline
       if [ "$sptval" -ne 0 ]; then
-        printf "| %-11s | %-17s | %-12s | %-12s | %-10s | %-9s |\n" "$provider" "$loc" "Failed" "To" "Get" "Data"
+        printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "Failed" "To" "Get" "Data"
       else
-        printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, '{gsub(/"/, ""); printf "| %-11s | %-17s | %.1f %-6s | %.1f %-6s | %.1f %-6s | %-6.1f %-1.16s |\n", prov, loc, $7/125000, "MB/s", $6/125000, "MB/s", ($8+$9)/(1000*1000*1000), "GB", $3, "ms" }' | parse_output
+        printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($7), hum($6), ($8+$9)/(1000^3), "GB", $3, "ms" }'
       fi
     done
   }
-  printf "+%88s+\n" | tr ' ' '-' | parse_output
+  printf "+%87s+\n" | tr ' ' '-' | parse_output
 }
 geekbench_test() {
   # Skip geekbench on input argument

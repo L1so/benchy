@@ -6,14 +6,16 @@ Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.co
 ```
 Usage: benchy [options]
 Options:
+  -o, --output            Store benchy result to file in given directory (default: Current directory)
   -t, --temp-file         Remove benchy dependencies after run (default: keep storing)
-  -n, --skip-network      Skip iperf3 network measurement test
+  -n, --skip-network      Skip network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
+  -r, --region=ARG        Specify region to bench network (as, af, eu, na, sa, oc, mix)
+  -s, --speedtest         Prefer speedtest in place of iperf3
   -i, --show-ip           Display server public IP address
   -l, --long-info         Display long complete output
   -p, --parse-only        Only parse basic information (equal to -ndg)
-  -r, --iperf-region      Pick iperf server from 7 continent (as, af, eu, na, sa, an, oc, mix)
   -h, --help              Display this help section
   -v, --version           Display version
 ```
@@ -64,12 +66,6 @@ This section covers various Linux Distribution supported by benchy, each test co
 
 Benchy **may** also works on other distribution than previously stated. Be sure to report any issues that you found.
 
-## Alpine Linux
-While most Linux distribution uses glibc, Alpine Linux implement [musl libc](https://musl.libc.org/) in its system, below is non-exhaustive list to what's known **not** to work in Musl based system.
-
-- ~~fio~~ (Work as of v1.1)
-- ~~iperf3~~ (Work as of v1.1)
-- Geekbench
 ## Example Output
 
 This is sample output of benchy in action:
