@@ -778,7 +778,7 @@ parse_speedtest() {
       if [ "$sptval" -ne 0 ]; then
         printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "Failed" "To" "Get" "Data"
       else
-        printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($7), hum($6), ($8+$9)/(1000^3), "GB", $3, "ms" }'
+        printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($7), hum($6), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output
       fi
     done
   }
