@@ -1,9 +1,9 @@
 #!/bin/sh
-# Benchy V1.8
+# Benchy V1.9
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v1.8"
+currentVersion="v1.9"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -11,7 +11,6 @@ header_intro() {
     echo '# # # # # # # # # # # # # # # # # # # # #'
     echo "#             Benchy $currentVersion               #"
     echo '#    https://github.com/L1so/benchy     #'
-    echo '#         AIO Benchmarking tool         #'
     echo '# # # # # # # # # # # # # # # # # # # # #'
     printf '%s\t%s\t\t%s\n' "#" "$currentDate" "#"
     echo '# # # # # # # # # # # # # # # # # # # # #'
@@ -31,7 +30,6 @@ Options:
   -r, --region=ARG        Specify region to bench network (as, af, eu, na, sa, oc, mix)
   -s, --speedtest         Prefer speedtest in place of iperf3
   -i, --show-ip           Display server public IP address
-  -l, --long-info         Display long complete output
   -p, --parse-only        Only parse basic information (equal to -ndg)
   -h, --help              Display this help section
   -v, --version           Display version
@@ -51,7 +49,6 @@ if [ "$#" != 0 ]; then
       -d|--skip-disk) arg_skip_disk="true";;
       -g|--skip-gb) arg_skip_gb="true";;
       -i|--show-ip) arg_show_ip="true";;
-      -l|--long-output) arg_long_output="true";;
       -s|--speedtest) arg_prefer_speedtest="true";;
       -x|--dev-branch) branch="dev";;
       -p|--parse-only)
@@ -104,20 +101,7 @@ outputdir="${outputdir:-/tmp}"
 if [ -n "$arg_output_file" ] || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi
 
 # Source https://gist.github.com/Akianonymus/25cfa570cb66821ab61846ceb0f9ca07
-convertsize() {
-    in=$(printf "%s" ${1:-0} | tr -d -c 0-9) sn=0
-    dn='' typen=''
-    while [ "${in}" -gt 1024 ]; do
-        dn="$(printf ".%02d" $((in % 1024 * 100 / 1024)))"
-        in=$((in / 1024)) && sn=$((sn += 1))
-    done
-    j=0 && for i in KiB MiB GiB TiB PiB EiB YiB ZiB; do
-        j="$((j += 1))" && [ "$((j - 1))" = "${sn}" ] && typen="${i}" && break
-        continue
-    done
-    printf "%s\n" "${in}${dn} ${typen}"
-}
-
+convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; p=int(log(x)/log(1024)); printf("%0.1f %s\n" , (x ? x/1024^p : 0), v[p+1] ); }'; }
 core_pkg() {
   is_installed locale && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
   for pkg in tput tar; do
@@ -259,8 +243,7 @@ binarycheck() {
   geekbench_path="${benchy_path}/gb${gb_version}"
   bc_path=$benchy_path/bc
   lsblk_path=$benchy_path/lsblk
-  country_code=$benchy_path/country.txt
-  country_json=$benchy_path/country.json
+  ipformation=$benchy_path/ipformation.json
   continent_list=$benchy_path/continent.csv
   continent_file=$benchy_path/continent.txt
 
@@ -302,8 +285,8 @@ binarycheck() {
     mkdir -p $benchy_path $geekbench_path
     printf "%s" "Fetching required asset, please wait a moment..."
     gitlink="https://github.com/L1so/benchy/raw/${branch:-main}/binary"
-    # Country code
-    [ ! -e $country_code ] && file_grabber "ipinfo.io/country" $country_code
+    # IP Information
+    [ ! -e $ipformation ] && file_grabber "ip-api.com/json" $ipformation
     # Country.json
     [ ! -e $country_json ] && file_grabber "https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw" $country_json
     # Continent.csv
@@ -379,14 +362,19 @@ sysinfo() {
   # OS
   . "/etc/os-release"
   currentOS="${PRETTY_NAME}"
+  kernelver=$(uname -r)
   checkmark=$(printf '\342\234\224')
   crossmark=$(printf '\342\235\214')
   # Uptime
   uptime_now=$(awk '{print int($1/86400)" Days, "int($1%86400/3600)" Hours, "int(($1%3600)/60)" Minute, "int($1%60)" Seconds "}' /proc/uptime)
   # Location
-  c_code=$(cat $country_code)
-  country=$(grep -o '"'"$c_code"'": *"[^"]*' "$country_json" | grep -o '[^"]*$')
-  awk -F',' "/$c_code/{ print \$3 }" $continent_list > $continent_file
+  country=$(grep -o '"'"country"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
+  awk -F',' "/$country/{ print \$3 }" $continent_list > $continent_file
+  # Organization
+  org=$(grep -o '"'"org"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
+  ispasn=$(grep -o '"'"as"'": *"[^"]*' $ipformation | awk -F\" '{ print $4 }')
+  isp=$(printf %s "$ispasn" | cut -d" " -f 2-)
+  asn=$(printf %s "$ispasn" | cut -d" " -f -1)
 
   if [ "$arg_show_ip" = "true" ]; then
     # IPv4 check
@@ -413,41 +401,22 @@ sysinfo() {
 
   # Disk & Memory Usage
   df_output=$(df -k /)
-  disk_info=$(convertsize "$(echo "$df_output" | awk 'NR==2{ print $2 }')")
-  disk_usage=$(convertsize "$(echo "$df_output" | awk 'NR==2{ print $3 }')")
+  disk_info=$(echo "$df_output" | awk 'NR==2{ print $2 }' | convertsize)
+  disk_usage=$(echo "$df_output"| awk 'NR==2{ print $3 }'| convertsize)
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
+  mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
+  mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB (%.0f%s Used)\n", $3/1024^3, $3*100/$2, "%" }')
+  swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
 
-  mem_info=$(convertsize "$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo)")
-  mem_usage=$(free -m | awk 'NR==2{printf "%s MB (%.0f%% Used)\n", $3,$3*100/$2 }')
-  swap_info=$(convertsize "$(free | awk '/Swap/ {print $2}')")
-
-  if [ "$arg_long_output" = "true" ]; then
-    # Printing the output: System Information
-    printf "System Information\n"; printf "%21s\n" | tr ' ' '-'
-    printf "%-11s : %-10s\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "IPv4" "$ipv4_string" "IPv6" "$ipv6_string"
-    echo
-
-    # Printing the output: Processor Information
-    printf "Processor Information\n"; printf "%21s\n" | tr ' ' '-'
-    printf "%-11s : %-10s\n" "Model" "$cpu_model" "Core" "$cpu_core $cpu_freq" "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
-    echo
-
-    # Printing the output: Disk & Memory Usage
-    printf "Disk & Memory Usage\n"; printf "%21s\n" | tr ' ' '-'
-    printf "%-11s : %-10s\n" "Disk" "$disk_info" "Disk Usage" "$disk_usage ($disk_percentage Used)" "Mem" "$mem_info" \
-    "Mem Usage" "$mem_usage" "Swap" "$swap_info"
-  else
-    # Printing the output (short ver.): Server Information
-    printf "Server Information\n"; printf "%21s\n" | tr ' ' '-'
-    printf "%-11s : %-10s\n" "OS" "$currentOS" "Uptime" "$uptime_now" "Location" "$country" "CPU" "$cpu_model" "Core" "$cpu_core $cpu_freq" \
-    "AES-NI" "$cpu_aes" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type"
-    echo
-
-    # Printing the output (short ver.): Disk & Memory Usage
-    printf "Disk & Memory Usage\n"; printf "%21s\n" | tr ' ' '-'
-    printf "%-11s : %-10s\n" "Disk" "$disk_info" "Disk Usage" "$disk_usage ($disk_percentage Used)" "Mem" "$mem_info" \
-    "Mem Usage" "$mem_usage" "Swap" "$swap_info"
-  fi
+  printf "%-58s%s\n" "Server Insight" "Hardware Information"
+  printf "%-58s%s\n" "---------------------" "---------------------"
+  printf "%-11s : %-44s%-11s : %-10s\n" "Org" "$org" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
+  "Kernel" "$kernelver" "AES-NI" "$cpu_aes" "Uptime" "$uptime_now" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type" "Swap" "$swap_info"
+  echo
+  printf "%-58s%s\n" "Disk & Memory Usage" "Network Data"
+  printf "%-58s%s\n" "---------------------" "---------------------"
+  printf "%-11s : %-44s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$isp" \
+  "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage" "IPv6" "$ipv6_string"
 }
 disk_test() {
   [ "$arg_skip_disk" = "true" ] && return 1
@@ -739,7 +708,7 @@ parse_iperf() {
         latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] );} else{ return sprintf("%1.5s", "busy") } }
+        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
         BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output
         unset send_speed rec_speed prot
       done
@@ -759,7 +728,7 @@ parse_iperf() {
         latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] );} else{ return sprintf("%1.5s", "busy") } }
+        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
         BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output
         unset send_speed rec_speed prot
       done

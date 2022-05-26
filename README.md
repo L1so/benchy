@@ -14,7 +14,6 @@ Options:
   -r, --region=ARG        Specify region to bench network (as, af, eu, na, sa, oc, mix)
   -s, --speedtest         Prefer speedtest in place of iperf3
   -i, --show-ip           Display server public IP address
-  -l, --long-info         Display long complete output
   -p, --parse-only        Only parse basic information (equal to -ndg)
   -h, --help              Display this help section
   -v, --version           Display version
@@ -70,69 +69,64 @@ Benchy **may** also works on other distribution than previously stated. Be sure 
 
 This is sample output of benchy in action:
 ```
-# # # # # # # # # # # # # # # # # # #
-#            Benchy v1.5            #
-#   https://github.com/L1so/benchy  #
-#        AIO Benchmarking tool      #
-# # # # # # # # # # # # # # # # # # #
-#      29 Apr 2022 20:59 WIB        #
-# # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # #
+#             Benchy v1.9               #
+#    https://github.com/L1so/benchy     #
+# # # # # # # # # # # # # # # # # # # # #
+#       26 May 2022 21:10 WIB           #
+# # # # # # # # # # # # # # # # # # # # #
 
-Server Information
----------------------
-OS          : Ubuntu 18.04.6 LTS
-Uptime      : 1 Days, 8 Hours, 45 Minute, 13 Seconds 
-Location    : Singapore 
-CPU         : AMD EPYC 7302P 16-Core Processor
-Core        : 1 @ 2999.998 MHz
-AES-NI      : ✔ Enabled
-VM-x/AMD-V  : ✔ Enabled
-Virt        : kvm       
+Server Insight                                            Hardware Information
+---------------------                                     ---------------------
+Org         : Shock Hosting LLC                           Model       : QEMU Virtual CPU version 2.5+
+Location    : Australia                                   Core        : 8 @ 3199.998 MHz
+Kernel      : 4.4.0-87-generic                            AES-NI      : ❌ Disabled
+Uptime      : 88 Days, 4 Hours, 24 Minute, 20 Seconds     VM-x/AMD-V  : ❌ Disabled
+Virt        : kvm                                         Swap        : 512.0 MiB 
 
-Disk & Memory Usage
----------------------
-Disk        : 23.55 GiB 
-Disk Usage  : 9.92 GiB (45% Used)
-Mem         : 985.01 MiB
-Mem Usage   : 117 MB (12% Used)
-Swap        : 1023.99 MiB
+Disk & Memory Usage                                       Network Data
+---------------------                                     ---------------------
+Disk        : 117.7 GiB                                   ASN         : AS395092  
+Disk Usage  : 37.6 GiB (32% Used)                         ISP         : Shock Hosting LLC
+Mem         : 7.8 GiB                                     IPv4        : ✔ Enabled
+Mem Usage   : 1.2 GiB (15% Used)                          IPv6        : ✔ Enabled
 
 Disk Performance Check (ext4 on /dev/vda1)
 +---------------------------------------------------------------------------+
 | Size | Read        | Write       | Total       |       IOPS (R,W,T)       |
 +===========================================================================+
-| 4k   | 173.25 MB/s | 173.71 MB/s | 346.97 MB/s | 44.4k  | 44.5k  | 88.8k  |
-| 64k  | 609.01 MB/s | 612.21 MB/s | 1.19 GB/s   | 9.7k   | 9.8k   | 19.5k  |
-| 512k | 660.81 MB/s | 695.92 MB/s | 1.32 GB/s   | 1.3k   | 1.4k   | 2.7k   |
-| 1m   | 673.91 MB/s | 718.80 MB/s | 1.35 GB/s   | 0.7k   | 0.7k   | 1.4k   |
+| 4k   | 222.92 MB/s | 223.50 MB/s | 446.42 MB/s | 57.1k  | 57.2k  | 114.3k |
+| 64k  | 2.90 GB/s   | 2.92 GB/s   | 5.83 GB/s   | 47.6k  | 47.9k  | 95.5k  |
+| 512k | 5.03 GB/s   | 5.30 GB/s   | 10.33 GB/s  | 10.3k  | 10.8k  | 21.2k  |
+| 1m   | 5.17 GB/s   | 5.51 GB/s   | 10.69 GB/s  | 5.3k   | 5.7k   | 10.9k  |
 +---------------------------------------------------------------------------+
 
-Network Performance Test (Region: Mixed)
-+--------------------------------------------------------------------------------------+
-| Prot. | Provider    | Location        | Send            | Receive         | Latency  |
-+======================================================================================+
-| IPv4  | Clouvider   | London, UK      | 113 Mbits/sec   | 147 Mbits/sec   | 155 ms   |
-|       | Airstream   | Wisconsin, USA  | 68.5 Mbits/sec  | 127 Mbits/sec   | 232 ms   |
-|       | Hybula      | Amsterdam, NL   | busy            | busy            | 159 ms   |
-|       | Online.net  | Paris, FRA      | 93.9 Mbits/sec  | 123 Mbits/sec   | 150 ms   |
-+--------------------------------------------------------------------------------------+
-| IPv6  | Clouvider   | London, UK      | 694 Mbits/sec   | 493 Mbits/sec   | 155 ms   |
-|       | Airstream   | Wisconsin, USA  | 466 Mbits/sec   | 303 Mbits/sec   | 232 ms   |
-|       | Hybula      | Amsterdam, NL   | busy            | busy            | 159 ms   |
-|       | Online.net  | Paris, FRA      | busy            | busy            | busy     |
-+--------------------------------------------------------------------------------------+
+Network Performance Test (Region: Oceania)
++---------------------------------------------------------------------------------+
+| Prot. | Provider    | Location        | Send         | Receive      | Latency   |
++=================================================================================+
+| IPv4  | Clouvider   | London, UK      |  306.2 MB/s  |  172.1 MB/s  |  315.6 ms |
+|       | Airstream   | Wisconsin, USA  |  428.3 MB/s  |  207.6 MB/s  |  218.1 ms |
+|       | Hybula      | Amsterdam, NL   |  681.3 MB/s  |  569.3 MB/s  |  171.3 ms |
+|       | Wilhelm.tel | Hamburg, DE     |  549.9 MB/s  |        busy  |    0.0 ms |
++---------------------------------------------------------------------------------+
+| IPv6  | Clouvider   | London, UK      |        busy  |  242.6 MB/s  |  216.7 ms |
+|       | Airstream   | Wisconsin, USA  |  516.3 MB/s  |  226.0 MB/s  |  225.5 ms |
+|       | Hybula      | Amsterdam, NL   |  489.2 MB/s  |  430.2 MB/s  |  227.9 ms |
+|       | Wilhelm.tel | Hamburg, DE     |        busy  |        busy  |    0.0 ms |
++---------------------------------------------------------------------------------+
 
 +-----------------------------------------------+
 | Geekbench 5.4.4 Tryout for Linux x86 (64-bit) |
 +===============================================+
-| Single Core        | 942                      |
-| Multi Core         | 946                      |
+| Single Core        | 728                      |
+| Multi Core         | 4288                     |
 +-----------------------------------------------+
-| https://browser.geekbench.com/v5/cpu/14619307 |
+| https://browser.geekbench.com/v5/cpu/15134215 |
 +-----------------------------------------------+
-| Benchy time spent  | 7 Minutes 37 Seconds     |
+| Benchy time spent  | 7 Minutes 26 Seconds     |
 +-----------------------------------------------+
-| Benchy result      | http://sprunge.us/5pTIsC |
+| Benchy result      | http://sprunge.us/i9kToS |
 +-----------------------------------------------+
 ```
 
