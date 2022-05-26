@@ -73,60 +73,60 @@ This is sample output of benchy in action:
 #             Benchy v1.9               #
 #    https://github.com/L1so/benchy     #
 # # # # # # # # # # # # # # # # # # # # #
-#       26 May 2022 21:10 WIB           #
+#	26 May 2022 22:32 WIB		#
 # # # # # # # # # # # # # # # # # # # # #
 
-Server Insight                                            Hardware Information
----------------------                                     ---------------------
-Org         : Shock Hosting LLC                           Model       : QEMU Virtual CPU version 2.5+
-Location    : Australia                                   Core        : 8 @ 3199.998 MHz
-Kernel      : 4.4.0-87-generic                            AES-NI      : ❌ Disabled
-Uptime      : 88 Days, 4 Hours, 24 Minute, 20 Seconds     VM-x/AMD-V  : ❌ Disabled
-Virt        : kvm                                         Swap        : 512.0 MiB 
+Server Insight                                          Hardware Information
+---------------------                                   ---------------------
+Org         : Shock Hosting LLC                         Model       : QEMU Virtual CPU version 2.5+
+Location    : Australia                                 Core        : 8 @ 3199.998 MHz
+Kernel      : 4.4.0-87-generic                          AES-NI      : ❌ Disabled
+Uptime      : 88 Days, 5 Hours, 46 Minute, 3 Seconds    VM-x/AMD-V  : ❌ Disabled
+Virt        : kvm                                       Swap        : 512.0 MiB 
 
-Disk & Memory Usage                                       Network Data
----------------------                                     ---------------------
-Disk        : 117.7 GiB                                   ASN         : AS395092  
-Disk Usage  : 37.6 GiB (32% Used)                         ISP         : Shock Hosting LLC
-Mem         : 7.8 GiB                                     IPv4        : ✔ Enabled
-Mem Usage   : 1.2 GiB (15% Used)                          IPv6        : ✔ Enabled
+Disk & Memory Usage                                     Network Data
+---------------------                                   ---------------------
+Disk        : 117.7 GiB                                 ASN         : AS395092  
+Disk Usage  : 37.6 GiB (32% Used)                       ISP         : Shock Hosting LLC
+Mem         : 7.8 GiB                                   IPv4        : ✔ Enabled
+Mem Usage   : 1.2 GiB (15% Used)                        IPv6        : ✔ Enabled
 
 Disk Performance Check (ext4 on /dev/vda1)
 +---------------------------------------------------------------------------+
 | Size | Read        | Write       | Total       |       IOPS (R,W,T)       |
 +===========================================================================+
-| 4k   | 222.92 MB/s | 223.50 MB/s | 446.42 MB/s | 57.1k  | 57.2k  | 114.3k |
-| 64k  | 2.90 GB/s   | 2.92 GB/s   | 5.83 GB/s   | 47.6k  | 47.9k  | 95.5k  |
-| 512k | 5.03 GB/s   | 5.30 GB/s   | 10.33 GB/s  | 10.3k  | 10.8k  | 21.2k  |
-| 1m   | 5.17 GB/s   | 5.51 GB/s   | 10.69 GB/s  | 5.3k   | 5.7k   | 10.9k  |
+| 4k   | 213.69 MB/s | 214.26 MB/s | 427.95 MB/s | 54.7k  | 54.9k  | 109.5k |
+| 64k  | 2.55 GB/s   | 2.56 GB/s   | 5.12 GB/s   | 41.8k  | 42.1k  | 83.9k  |
+| 512k | 4.43 GB/s   | 4.67 GB/s   | 9.11 GB/s   | 9.1k   | 9.6k   | 18.6k  |
+| 1m   | 4.75 GB/s   | 5.07 GB/s   | 9.82 GB/s   | 4.9k   | 5.2k   | 10.1k  |
 +---------------------------------------------------------------------------+
 
 Network Performance Test (Region: Oceania)
 +---------------------------------------------------------------------------------+
 | Prot. | Provider    | Location        | Send         | Receive      | Latency   |
 +=================================================================================+
-| IPv4  | Clouvider   | London, UK      |  306.2 MB/s  |  172.1 MB/s  |  315.6 ms |
-|       | Airstream   | Wisconsin, USA  |  428.3 MB/s  |  207.6 MB/s  |  218.1 ms |
-|       | Hybula      | Amsterdam, NL   |  681.3 MB/s  |  569.3 MB/s  |  171.3 ms |
-|       | Wilhelm.tel | Hamburg, DE     |  549.9 MB/s  |        busy  |    0.0 ms |
+| IPv4  | Clouvider   | London, UK      |  332.7 MB/s  |  127.0 MB/s  |  316.9 ms |
+|       | Airstream   | Wisconsin, USA  |  569.2 MB/s  |  149.0 MB/s  |  218.0 ms |
+|       | Hybula      | Amsterdam, NL   |  688.9 MB/s  |  539.4 MB/s  |  171.7 ms |
+|       | Wilhelm.tel | Hamburg, DE     |        busy  |        busy  |    0.0 ms |
 +---------------------------------------------------------------------------------+
-| IPv6  | Clouvider   | London, UK      |        busy  |  242.6 MB/s  |  216.7 ms |
-|       | Airstream   | Wisconsin, USA  |  516.3 MB/s  |  226.0 MB/s  |  225.5 ms |
-|       | Hybula      | Amsterdam, NL   |  489.2 MB/s  |  430.2 MB/s  |  227.9 ms |
+| IPv6  | Clouvider   | London, UK      |  502.1 MB/s  |  264.6 MB/s  |  216.8 ms |
+|       | Airstream   | Wisconsin, USA  |  483.8 MB/s  |  208.3 MB/s  |  225.6 ms |
+|       | Hybula      | Amsterdam, NL   |  463.8 MB/s  |  431.7 MB/s  |  227.9 ms |
 |       | Wilhelm.tel | Hamburg, DE     |        busy  |        busy  |    0.0 ms |
 +---------------------------------------------------------------------------------+
 
 +-----------------------------------------------+
 | Geekbench 5.4.4 Tryout for Linux x86 (64-bit) |
 +===============================================+
-| Single Core        | 728                      |
-| Multi Core         | 4288                     |
+| Single Core        | 729                      |
+| Multi Core         | 3332                     |
 +-----------------------------------------------+
-| https://browser.geekbench.com/v5/cpu/15134215 |
+| https://browser.geekbench.com/v5/cpu/15135759 |
 +-----------------------------------------------+
-| Benchy time spent  | 7 Minutes 26 Seconds     |
+| Benchy time spent  | 7 Minutes 53 Seconds     |
 +-----------------------------------------------+
-| Benchy result      | http://sprunge.us/i9kToS |
-+-----------------------------------------------+
+
+
 ```
 
