@@ -408,14 +408,14 @@ sysinfo() {
   mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB (%.0f%s Used)\n", $3/1024^3, $3*100/$2, "%" }')
   swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
 
-  printf "%-58s%s\n" "Server Insight" "Hardware Information"
-  printf "%-58s%s\n" "---------------------" "---------------------"
-  printf "%-11s : %-44s%-11s : %-10s\n" "Org" "$org" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
+  printf "%-56s%s\n" "Server Insight" "Hardware Information"
+  printf "%-56s%s\n" "---------------------" "---------------------"
+  printf "%-11s : %-42s%-11s : %-10s\n" "Org" "$org" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
   "Kernel" "$kernelver" "AES-NI" "$cpu_aes" "Uptime" "$uptime_now" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type" "Swap" "$swap_info"
   echo
-  printf "%-58s%s\n" "Disk & Memory Usage" "Network Data"
-  printf "%-58s%s\n" "---------------------" "---------------------"
-  printf "%-11s : %-44s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$isp" \
+  printf "%-56s%s\n" "Disk & Memory Usage" "Network Data"
+  printf "%-56s%s\n" "---------------------" "---------------------"
+  printf "%-11s : %-42s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$isp" \
   "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage" "IPv6" "$ipv6_string"
 }
 disk_test() {
