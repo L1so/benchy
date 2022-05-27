@@ -410,7 +410,7 @@ sysinfo() {
 
   printf "%-56s%s\n" "Server Insight" "Hardware Information"
   printf "%-56s%s\n" "---------------------" "---------------------"
-  printf "%-11s : %-42s%-11s : %-10s\n" "Org" "$org" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
+  printf "%-11s : %-42s%-11s : %-10s\n" "Org" "${org:-Not found}" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
   "Kernel" "$kernelver" "AES-NI" "$cpu_aes" "Uptime" "$uptime_now" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type" "Swap" "$swap_info"
   echo
   printf "%-56s%s\n" "Disk & Memory Usage" "Network Data"
