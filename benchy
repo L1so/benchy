@@ -101,7 +101,7 @@ outputdir="${outputdir:-/tmp}"
 if [ -n "$arg_output_file" ] || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi
 
 # Source https://gist.github.com/Akianonymus/25cfa570cb66821ab61846ceb0f9ca07
-convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; p=int(log(x)/log(1024)); printf("%0.1f %s\n" , (x ? x/1024^p : 0), v[p+1] ); }'; }
+convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; (x ? p=int(log(x)/log(1024)) : p == 0 ); printf("%0.1f %s\n" , x/1024^p, v[p+1] ); }'; }
 core_pkg() {
   is_installed locale && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
   for pkg in tput tar; do
@@ -619,10 +619,10 @@ EOF
       );;
       "North America")
       spt_provider=$(cat << 'EOF'
-Sprint|Washington DC, US|ookla1.washdc.sprintadp.net
-Marcatel|Mexico City, MX|ooklamx.marcatel.com
-Westnet|Calgary, CA|speedtest.westnet.ca
+Comcast|Houston, US|stosat-nash-01.sys.comcast.net
+Spectrum|New York, US|speedtest.nyc.rr.com
 Telus|Edmonton, CA|edmonton.speedtest.telus.com
+Airstream|Wisconsin, US|speedtest.airstreamcomm.net
 Hivelocity|Dallas, US|speedtest.dal.hivelocity.net
 EOF
         );;
@@ -637,11 +637,11 @@ EOF
         );;
         "Oceania")
         spt_provider=$(cat << 'EOF'
-CareTel|Sydney, AU|sp1.caretel.com.au
+Vocus|Perth, AU|speedtest-pth.vocus.net
 Telstra|Sydney, AU|syd1.speedtest.telstra.net
 MyRepublic|Auckland, NZ|speedtest.myrepublic.co.nz
 Lightwire|Hamilton, NZ|speedtest.lightwire.co.nz
-Connect|Suva, FJ|speedtestnet.connect.com.fj
+Vodafone|Melbourne, AU|my1.speedtest.vodafone.com.au
 EOF
         );;
     esac
@@ -708,7 +708,7 @@ parse_iperf() {
         latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {(x ? p=int(log(x)/log(1000)) : p == 0 ); return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
         BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output
         unset send_speed rec_speed prot
       done
@@ -728,7 +728,7 @@ parse_iperf() {
         latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {(x ? p=int(log(x)/log(1000)) : p == 0 ); return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
         BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output
         unset send_speed rec_speed prot
       done
@@ -747,7 +747,7 @@ parse_speedtest() {
       if [ "$sptval" -ne 0 ]; then
         printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "Failed" "To" "Get" "Data"
       else
-        printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , x/1000^p , v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($7), hum($6), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output
+        printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($7), hum($6), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output
       fi
     done
   }
