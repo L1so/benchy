@@ -158,6 +158,7 @@ print_space() { { printf "%${1}s" | tr ' ' '\n' ; } | parse_output; }
 
 cleanup() {
   tput cnorm
+  rm -f $fiofile $lsblkfifo
 }
 trap cleanup 0 2 3 15
 
@@ -371,7 +372,6 @@ sysinfo() {
   country=$(grep -o '"'"country"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
   awk -F',' "/$country/{ print \$3 }" $continent_list > $continent_file
   # Organization
-  org=$(grep -o '"'"org"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$' | sed 's/\(.\{33\}\).*/\1.../')
   ispasn=$(grep -o '"'"as"'": *"[^"]*' $ipformation | awk -F\" '{ print $4 }')
   isp=$(printf %s "$ispasn" | cut -d" " -f 2-)
   asn=$(printf %s "$ispasn" | cut -d" " -f -1)
@@ -410,7 +410,7 @@ sysinfo() {
 
   printf "%-55s%s\n" "Server Insight" "Hardware Information"
   printf "%-55s%s\n" "---------------------" "---------------------"
-  printf "%-10s : %-42s%-11s : %-10s\n" "Org" "${org:-Not found}" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
+  printf "%-10s : %-42s%-11s : %-10s\n" "OS" "$currentOS" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
   "Kernel" "$kernelver" "AES-NI" "$cpu_aes" "Uptime" "$uptime_now" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type" "Swap" "$swap_info"
   echo
   printf "%-55s%s\n" "Disk & Memory Usage" "Network Data"
@@ -420,6 +420,9 @@ sysinfo() {
 }
 disk_test() {
   [ "$arg_skip_disk" = "true" ] && return 1
+  lsblkfifo="/tmp/lsblk.fifo"
+  fiofile="/tmp/fio.log"
+  [ -p "$lsblkfifo" ] || mkfifo -m 600 "$lsblkfifo"
   print_space 1
   {
     $lsblk -nPpbo KNAME,SIZE,PKNAME,MOUNTPOINT,FSTYPE |
@@ -445,7 +448,7 @@ awk -F'="|" ?' -v OFS='|' '
             print knames[pkname], sizes[pkname], mountpoints[pkname], fstypes[pkname]
     }
 '
-  } |
+  } > "$lsblkfifo" &
 while IFS='|' read -r devname devsize devmp devtype; do
   mountpoint=$devmp
   disklimit=2
@@ -467,8 +470,7 @@ while IFS='|' read -r devname devsize devmp devtype; do
   for bs in 4k 64k 512k 1m; do
     # Iterate over each defined block_size from array
     printf "%s" "Running fio R+W sampling on $bs block size..."
-    fioutput=$(
-    timeout 35 \
+    if ! timeout 35 \
     $fio --name=rand_rw_$bs \
     --ioengine=libaio \
     --rw=randrw \
@@ -482,25 +484,27 @@ while IFS='|' read -r devname devsize devmp devtype; do
     --direct=1 \
     --filename=$mountpoint/test.fio \
     --group_reporting \
-    --minimal 2> /dev/null
-    )
-    [ "$?" -ne 0 ] && \
-    fio_result="${fio_result}1|Failed|To|Bench|Disk|Please|Retry#" && overline && continue
+    --output=$fiofile \
+    --minimal >/dev/null
+    then
+      fio_result="${fio_result}1|Failed|To|Bench|Disk|Please|Retry#" && overline && continue
+    fi
 
-    fio_iops_read=$(echo "$fioutput" | cut -d';' -f8)
-    fio_iops_write=$(echo "$fioutput" | cut -d';' -f49)
+    fio_iops_read=$(cut -d';' -f8 < "$fiofile")
+    fio_iops_write=$(cut -d';' -f49 < "$fiofile")
     fio_iops=$(printf "%.1fk" "$(echo "scale=2 ; ($fio_iops_read + $fio_iops_write) / 1000" | $bc)")
     fio_iops_read=$(printf "%.1fk" "$(echo "scale=2 ; $fio_iops_read/ 1000" | $bc)")
     fio_iops_write=$(printf "%.1fk" "$(echo "scale=2 ; $fio_iops_write/ 1000" | $bc)")
 
-    fio_test_read=$(echo "$fioutput" | cut -d';' -f7)
-    fio_test_write=$(echo "$fioutput" | cut -d';' -f48)
+    fio_test_read=$(cut -d';' -f7 < "$fiofile")
+    fio_test_write=$(cut -d';' -f48 < "$fiofile")
     fio_test=$(format_disk "$(echo "($fio_test_read + $fio_test_write)" | $bc)")
     fio_test_read=$(format_disk $fio_test_read)
     fio_test_write=$(format_disk $fio_test_write)
 
     fio_result_temp="$bs|$fio_test_read|$fio_test_write|$fio_test|$fio_iops_read|$fio_iops_write|$fio_iops#"
     fio_result="${fio_result}${fio_result_temp}"
+    rm -f "$fiofile"
     overline
   done
   # Remove trailing hashtag
@@ -524,7 +528,8 @@ while IFS='|' read -r devname devsize devmp devtype; do
     unset fio_result
     rm -f -- $mountpoint/test.fio
   } | parse_output
-done
+done < "$lsblkfifo"
+rm -f "$lsblkfifo"
 }
 
 netlist() {
