@@ -1,19 +1,19 @@
 #!/bin/sh
-# Benchy V1.9
+# Benchy V2.0
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v1.9"
+currentVersion="v2.0"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
   {
-    echo '# # # # # # # # # # # # # # # # # # # # #'
-    echo "#             Benchy $currentVersion               #"
-    echo '#    https://github.com/L1so/benchy     #'
-    echo '# # # # # # # # # # # # # # # # # # # # #'
-    printf '%s\t%s\t\t%s\n' "#" "$currentDate" "#"
-    echo '# # # # # # # # # # # # # # # # # # # # #'
+    printf "%s\n" '# # # # # # # # # # # # # # # # # # # # #'
+    printf "%s\n" "#             Benchy $currentVersion               #"
+    printf "%s\n" '#    https://github.com/L1so/benchy     #'
+    printf "%s\n" '# # # # # # # # # # # # # # # # # # # # #'
+    printf "%s\n" "#        $currentDate          #"
+    printf "%s\n" '# # # # # # # # # # # # # # # # # # # # #'
     echo
   } | parse_output
 }
@@ -371,7 +371,7 @@ sysinfo() {
   country=$(grep -o '"'"country"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
   awk -F',' "/$country/{ print \$3 }" $continent_list > $continent_file
   # Organization
-  org=$(grep -o '"'"org"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
+  org=$(grep -o '"'"org"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$' | sed 's/\(.\{33\}\).*/\1.../')
   ispasn=$(grep -o '"'"as"'": *"[^"]*' $ipformation | awk -F\" '{ print $4 }')
   isp=$(printf %s "$ispasn" | cut -d" " -f 2-)
   asn=$(printf %s "$ispasn" | cut -d" " -f -1)
@@ -388,9 +388,9 @@ sysinfo() {
 
   # Processor information
   if is_installed lscpu && { lscpu 2>&1 | grep -q -- 'Model name' ; }; then
-    cpu_model=$(lscpu | awk -F: '/Model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}}')
+    cpu_model=$(lscpu | awk -F: '/Model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}}' | sed 's/\(.\{41\}\).*/\1/')
   else
-    cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' /proc/cpuinfo)
+    cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' /proc/cpuinfo | sed 's/\(.\{41\}\).*/\1/')
   fi
   cpu_core=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
   cpu_freq=$(awk 'NR==1{ print "@ "($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("@ %s MHz\n", $2); exit}}' /proc/cpuinfo)
@@ -408,14 +408,14 @@ sysinfo() {
   mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB (%.0f%s Used)\n", $3/1024^3, $3*100/$2, "%" }')
   swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
 
-  printf "%-56s%s\n" "Server Insight" "Hardware Information"
-  printf "%-56s%s\n" "---------------------" "---------------------"
-  printf "%-11s : %-42s%-11s : %-10s\n" "Org" "${org:-Not found}" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
+  printf "%-55s%s\n" "Server Insight" "Hardware Information"
+  printf "%-55s%s\n" "---------------------" "---------------------"
+  printf "%-10s : %-42s%-11s : %-10s\n" "Org" "${org:-Not found}" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
   "Kernel" "$kernelver" "AES-NI" "$cpu_aes" "Uptime" "$uptime_now" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type" "Swap" "$swap_info"
   echo
-  printf "%-56s%s\n" "Disk & Memory Usage" "Network Data"
-  printf "%-56s%s\n" "---------------------" "---------------------"
-  printf "%-11s : %-42s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$isp" \
+  printf "%-55s%s\n" "Disk & Memory Usage" "Network Data"
+  printf "%-55s%s\n" "---------------------" "---------------------"
+  printf "%-10s : %-42s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$isp" \
   "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage" "IPv6" "$ipv6_string"
 }
 disk_test() {
