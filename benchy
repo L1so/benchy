@@ -23,7 +23,7 @@ display_help() {
 Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
-  -t, --temp-file         Remove benchy dependencies after run (default: keep storing)
+  -k, --keep-file         Keep benchy related files after successful run (default: Remove)
   -n, --skip-network      Skip network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
@@ -44,7 +44,7 @@ if [ "$#" != 0 ]; then
   while [ "$1" != "$endofline" ]; do
     opt="$1"; shift
     case "$opt" in
-      -t|--temp-file) arg_temp_file="true";;
+      -k|--keep-file) arg_keep_file="true";;
       -n|--skip-network) arg_skip_network="true";;
       -d|--skip-disk) arg_skip_disk="true";;
       -g|--skip-gb) arg_skip_gb="true";;
@@ -158,7 +158,7 @@ print_space() { { printf "%${1}s" | tr ' ' '\n' ; } | parse_output; }
 
 cleanup() {
   tput cnorm
-  rm -f $fiofile $lsblkfifo
+  rm -f $fiofile $lsblkfifo $fiores
 }
 trap cleanup 0 2 3 15
 
@@ -420,8 +420,9 @@ sysinfo() {
 }
 disk_test() {
   [ "$arg_skip_disk" = "true" ] && return 1
-  lsblkfifo="/tmp/lsblk.fifo"
-  fiofile="/tmp/fio.log"
+  lsblkfifo="${benchy_path}/lsblk.fifo"
+  fiofile="${benchy_path}/fio.log"
+  fiores="${benchy_path}/fio_res.log"
   [ -p "$lsblkfifo" ] || mkfifo -m 600 "$lsblkfifo"
   print_space 1
   {
@@ -439,7 +440,7 @@ awk -F'="|" ?' -v OFS='|' '
     seen[kname]++ { next }
     size > sizes[pkname] {
         knames[pkname] = kname
-        sizes[pkname] = int(size/1024/1024/1024  + 0.5)
+        sizes[pkname] = size
         mountpoints[pkname] = mountpoint
         fstypes[pkname] = fstype
     }
@@ -451,14 +452,14 @@ awk -F'="|" ?' -v OFS='|' '
   } > "$lsblkfifo" &
 while IFS='|' read -r devname devsize devmp devtype; do
   mountpoint=$devmp
-  disklimit=2
+  disklimit="2147483648" # 2048 MB
   case "$arch" in
     *arm*|*aarch*)
-    [ "$mountpoint" = "/" ] && disklimit="0.5";;
+    [ "$mountpoint" = "/" ] && disklimit="536870912";; # 512 MB
   esac
   [ -z "$devtype" ] && devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
   [ "$mountpoint" = "/" ] && mountpoint=$benchy_path
-  if [ "$(echo "$disklimit > $devsize" | $bc -l)" -eq 1 ]; then
+  if [ "$(echo "$disklimit > $devsize" | $bc)" -eq 1 ]; then
     printf "%s\n" "Insufficient storage on $devname" | parse_output
     continue
   fi
@@ -470,24 +471,29 @@ while IFS='|' read -r devname devsize devmp devtype; do
   for bs in 4k 64k 512k 1m; do
     # Iterate over each defined block_size from array
     printf "%s" "Running fio R+W sampling on $bs block size..."
-    if ! timeout 35 \
-    $fio --name=rand_rw_$bs \
-    --ioengine=libaio \
-    --rw=randrw \
-    --rwmixread=50 \
-    --bs=$bs \
-    --iodepth=64 \
-    --numjobs=2 \
-    --size=$fio_size \
-    --runtime=30 \
-    --gtod_reduce=1 \
-    --direct=1 \
-    --filename=$mountpoint/test.fio \
-    --group_reporting \
-    --output=$fiofile \
-    --minimal >/dev/null
-    then
-      fio_result="${fio_result}1|Failed|To|Bench|Disk|Please|Retry#" && overline && continue
+    {
+      timeout 40 \
+      $fio --name=rand_rw_$bs \
+      --ioengine=libaio \
+      --rw=randrw \
+      --rwmixread=50 \
+      --bs=$bs \
+      --iodepth=64 \
+      --numjobs=2 \
+      --size=$fio_size \
+      --runtime=30 \
+      --gtod_reduce=1 \
+      --direct=1 \
+      --filename=$mountpoint/test.fio \
+      --group_reporting \
+      --output=$fiofile \
+      --minimal
+      exitcode="$?"
+    } > /dev/null
+    if [ "$exitcode" -eq 124 ]; then
+      printf "%s\n" "1|Timeout|Reached|Retry|Your|Disk|Bench" >> "$fiores" && overline && continue
+    elif [ "$exitcode" -ne 0 ]; then
+      printf "%s\n" "1|Failed|To|Bench|Disk|Please|Retry" >> "$fiores" && overline && continue
     fi
 
     fio_iops_read=$(cut -d';' -f8 < "$fiofile")
@@ -502,34 +508,26 @@ while IFS='|' read -r devname devsize devmp devtype; do
     fio_test_read=$(format_disk $fio_test_read)
     fio_test_write=$(format_disk $fio_test_write)
 
-    fio_result_temp="$bs|$fio_test_read|$fio_test_write|$fio_test|$fio_iops_read|$fio_iops_write|$fio_iops#"
-    fio_result="${fio_result}${fio_result_temp}"
-    rm -f "$fiofile"
+    printf "%s\n" "$bs|$fio_test_read|$fio_test_write|$fio_test|$fio_iops_read|$fio_iops_write|$fio_iops" >> "$fiores"
+    truncate -s 0 "$fiofile"
     overline
   done
-  # Remove trailing hashtag
-  fio_result="${fio_result%#}"
-  fio_result=$(printf %s "$fio_result" | tr '#' '\n')
-
   # Build fio output
   {
     printf "Disk Performance Check ($devtype on $devname)\n"
     printf "+%75s+\n" | tr ' ' '-'
     printf "| %-3s | %-11s | %-11s | %-11s | %18s %7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
     printf "+%75s+\n" | tr ' ' '='
-    echo "$fio_result" |
-    {
-      while IFS='|' read -r blocksize read write total read_iops write_iops total_iops; do
-        # Loop over variable
-        printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
-      done
-    }
+    while IFS='|' read -r blocksize read write total read_iops write_iops total_iops; do
+      # Loop over variable
+      printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
+    done < "$fiores"
     printf "+%75s+\n" | tr ' ' '-'
-    unset fio_result
+    truncate -s 0 $fiores
     rm -f -- $mountpoint/test.fio
   } | parse_output
 done < "$lsblkfifo"
-rm -f "$lsblkfifo"
+rm -f "$lsblkfifo" "$fiores" "$fiofile"
 }
 
 netlist() {
@@ -832,6 +830,6 @@ main() {
     [ -n "$arg_prefer_speedtest" ] && parse_speedtest || parse_iperf
   fi
   geekbench_test && send_output
-  [ "$arg_temp_file" = "true" ] && rm -fr -- "$benchy_path"
+  [ -z "$arg_keep_file" ] && rm -fr -- "$benchy_path"
 }
 main
