@@ -7,6 +7,7 @@ currentVersion="v2.0"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
+  currentDateiso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
   {
     printf "%s\n" '# # # # # # # # # # # # # # # # # # # # #'
     printf "%s\n" "#             Benchy $currentVersion               #"
@@ -24,6 +25,7 @@ Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
+  -j, --json              Store benchy result as json
   -n, --skip-network      Skip network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
@@ -45,6 +47,7 @@ if [ "$#" != 0 ]; then
     opt="$1"; shift
     case "$opt" in
       -k|--keep-file) arg_keep_file="true";;
+      -j|--json) arg_json="true";;
       -n|--skip-network) arg_skip_network="true";;
       -d|--skip-disk) arg_skip_disk="true";;
       -g|--skip-gb) arg_skip_gb="true";;
@@ -98,7 +101,8 @@ if [ -f $HOME/.benchy_opt ]; then
 fi
 outputdir="${outputdir:-/tmp}"
 { [ ! -d $outputdir ] || [ ! -w $outputdir ] ; } && { >&2 printf "%s\n" "$outputdir does not exist or not writable" && exit 2; }
-if [ -n "$arg_output_file" ] || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi
+#if [ -z "$arg_json" ]; then if [ -n "$arg_output_file" ] || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi; fi
+if { [ -z "$arg_json" ] && [ -n "$arg_output_file" ] ; } || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi
 
 # Source https://gist.github.com/Akianonymus/25cfa570cb66821ab61846ceb0f9ca07
 convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; (x ? p=int(log(x)/log(1024)) : p == 0 ); printf("%0.1f %s\n" , x/1024^p, v[p+1] ); }'; }
@@ -120,12 +124,13 @@ parse_output() {
 }
 
 send_output() {
-  if [ -f "$outputdir/benchy.log" ]; then
+  if { [ -f "$outputdir/benchy.log" ] && [ -f "$outputdir/benchy.json" ]; } && { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then
+    [ -n "$arg_json" ] && logext="json" || logext="log"
     resulturl=$(
     if [ "$filegrab" -eq 0 ]; then
-      curl -sS -F 'sprunge=<-' http://sprunge.us < $outputdir/benchy.log
+      curl -sS -F 'sprunge=<-' http://sprunge.us < $outputdir/benchy.${logext}
     elif [ "$filegrab" -eq 1 ]; then
-      cat $outputdir/benchy.log | wget -qO - --post-data="sprunge=$(cat)" http://sprunge.us
+      cat $outputdir/benchy.${logext} | wget -qO - --post-data="sprunge=$(cat)" http://sprunge.us
     fi
     )
     {
@@ -133,7 +138,7 @@ send_output() {
       printf "+%47s+\n" | tr ' ' '-'
     } | parse_output
   fi
-  rm -f /tmp/benchy.log || true
+  rm -f /tmp/benchy.${logext} || true
 }
 
 format_disk() {
@@ -158,7 +163,7 @@ print_space() { { printf "%${1}s" | tr ' ' '\n' ; } | parse_output; }
 
 cleanup() {
   tput cnorm
-  rm -f $fiofile $lsblkfifo $fiores
+  rm -f $fiofile $lsblkfifo $fiores $mainjson
 }
 trap cleanup 0 2 3 15
 
@@ -233,6 +238,26 @@ gb_string() {
     awk -F[\<\>] '/colspan=\0472\047/{ print $3 }' "$1"
   fi
 }
+opening_json() {
+  [ -z "$arg_json" ] && return 1
+  cat <<JSON > $mainjson
+{
+  "benchy_ver" : "$currentVersion",
+  "date"       : "$currentDateiso",
+  "disk_bench" : {},
+  "network_bench" : {
+    "net_ipv4" : {},
+    "net_ipv6" : {}
+  },
+  "geekbench_test" : {}
+}
+JSON
+}
+closing_json() {
+  [ -z "$arg_json" ] && return 1
+  $jq 'walk(if type == "object" then with_entries(select(.value | (. != {} and . != []))) else . end)' "$mainjson" > $outputdir/benchy.json
+  rm -f $mainjson
+}
 
 binarycheck() {
   [ -f $HOME/.benchy_opt ] && printf "%s\n" "Found predefined option !"
@@ -244,7 +269,9 @@ binarycheck() {
   geekbench_path="${benchy_path}/gb${gb_version}"
   bc_path=$benchy_path/bc
   lsblk_path=$benchy_path/lsblk
+  jq_path=$benchy_path/jq
   ipformation=$benchy_path/ipformation.json
+  mainjson=$benchy_path/main.json
   continent_list=$benchy_path/continent.csv
   continent_file=$benchy_path/continent.txt
 
@@ -260,6 +287,8 @@ binarycheck() {
   else
     lsblk="$lsblk_path/lsblk"
   fi
+  # jq binary
+  is_installed jq && jq="jq" || jq="$jq_path/jq"
   # Speedtest binary
   speedtest="$speedtest_path/speedtest"
 
@@ -288,8 +317,6 @@ binarycheck() {
     gitlink="https://github.com/L1so/benchy/raw/${branch:-main}/binary"
     # IP Information
     [ ! -e $ipformation ] && file_grabber "ip-api.com/json" $ipformation
-    # Country.json
-    [ ! -e $country_json ] && file_grabber "https://gist.githubusercontent.com/L1so/f1a14c996770be45fed8d24bf8b6f11f/raw" $country_json
     # Continent.csv
     [ ! -e $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list
     # Download fio if not exist
@@ -321,6 +348,16 @@ binarycheck() {
       file_grabber "${gitlink}/lsblk/lsblk_${arch}" "$lsblk_path/lsblk"
       [ $? -eq 0 ] && chmod u+x $lsblk_path/lsblk
     fi
+    # Download jq if not exist
+    if [ "$jq" != "jq" ] && [ ! -f "$jq_path/jq" ]; then
+      mkdir -p $jq_path
+      case "$arch" in
+        "armhf"|"aarch64") jqddl="${gitlink}/jq/jq_${arch}";;
+        *) jqddl="https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux${jq_arch}";;
+      esac
+      file_grabber "$jqddl" "$jq_path/jq"
+      [ $? -eq 0 ] && chmod u+x $jq_path/jq
+    fi
     overline
   }
 }
@@ -332,6 +369,7 @@ user_arch() {
   case "$arch" in
     *x86_64*)
     arch="x86_64"
+    jq_arch="64"
     fio_size="2G"
     gb_version=5
     gb_arch="x86_64"
@@ -339,6 +377,7 @@ user_arch() {
     ;;
     *i?86*)
     arch="i386"
+    jq_arch="32"
     fio_size="2G"
     gb_version=4
     gb_arch="x86_32"
@@ -405,7 +444,8 @@ sysinfo() {
   disk_usage=$(echo "$df_output"| awk 'NR==2{ print $3 }'| convertsize)
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
   mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
-  mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB (%.0f%s Used)\n", $3/1024^3, $3*100/$2, "%" }')
+  mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB\n", $3/1024^3 }')
+  mem_percentage=$(free -b | awk 'NR==2{printf "%.0f%s\n", $3*100/$2, "%" }')
   swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
 
   printf "%-55s%s\n" "Server Insight" "Hardware Information"
@@ -416,13 +456,47 @@ sysinfo() {
   printf "%-55s%s\n" "Disk & Memory Usage" "Network Data"
   printf "%-55s%s\n" "---------------------" "---------------------"
   printf "%-10s : %-42s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$isp" \
-  "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage" "IPv6" "$ipv6_string"
+  "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage ($mem_percentage Used)" "IPv6" "$ipv6_string"
+
+  # Parse to JSON
+  if [ -n "$arg_json" ]; then
+    cat <<SYSJSON | $jq --argjson n "$(cat)" 'to_entries | ( map(.key == "date") | index(true) ) as $pos | .[0:$pos+1] + ($n|to_entries) + .[$pos+1:] | from_entries' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+    {
+      "server_insight" : {
+        "OS" : "$currentOS",
+        "location" : "$country",
+        "kernel" : "$kernelver",
+        "uptime" : "$uptime_now",
+        "virt" : "$virt_type"
+      },
+      "hardware_information" : {
+        "cpu_model" : "$cpu_model",
+        "cpu_core" : "$cpu_core $cpu_freq",
+        "cpu_aes" : "$(echo $cpu_aes | tr -dc '[:alnum:]\n\r')",
+        "cpu_virt" : "$(echo $cpu_virt | tr -dc '[:alnum:]\n\r')",
+        "swap" : "$swap_info"
+      },
+      "disk_info" : {
+        "disk" : "$disk_info",
+        "disk_usage" : "$disk_usage",
+        "disk_percentage" : "$disk_percentage",
+        "mem" : "$mem_info",
+        "mem_usage" : "$mem_usage",
+        "mem_percentage" : "$mem_percentage"
+      },
+      "network_data" : {
+        "asn" : "$asn",
+        "isp" : "$isp",
+        "ipv4" : "$(echo $ipv4_string | tr -dc '[:alnum:]\n\r')",
+        "ipv6" : "$(echo $ipv6_string | tr -dc '[:alnum:]\n\r')"
+      }
+    }
+SYSJSON
+  fi
 }
 disk_test() {
   [ "$arg_skip_disk" = "true" ] && return 1
-  lsblkfifo="${benchy_path}/lsblk.fifo"
-  fiofile="${benchy_path}/fio.log"
-  fiores="${benchy_path}/fio_res.log"
+  lsblkfifo="${benchy_path}/lsblk.fifo"; fiofile="${benchy_path}/fio.log"; fiores="${benchy_path}/fio_res.log"
   [ -p "$lsblkfifo" ] || mkfifo -m 600 "$lsblkfifo"
   print_space 1
   {
@@ -521,6 +595,20 @@ while IFS='|' read -r devname devsize devmp devtype; do
     while IFS='|' read -r blocksize read write total read_iops write_iops total_iops; do
       # Loop over variable
       printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
+      if [ -n "$arg_json" ]; then
+        cat <<DISKJSON | $jq --argjson dj "$(cat)" '.disk_bench += $dj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+        {
+          "${blocksize}_bs": {
+            "read": "$read",
+            "write": "$write",
+            "total": "$total",
+            "read_iops": "$read_iops",
+            "write_iops": "$write_iops",
+            "total_iops": "$total_iops"
+          }
+        }
+DISKJSON
+      fi
     done < "$fiores"
     printf "+%75s+\n" | tr ' ' '-'
     truncate -s 0 $fiores
@@ -691,7 +779,7 @@ net_header() {
     else
       printf "Ookla Network Speedtest (Region: $continent)\n"
       printf "+%87s+\n" | tr ' ' '-'
-      printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "Provider" "Location" "Upload" "Download" "Data Used" "Latency"
+      printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "Provider" "Location" "Download" "Upload" "Data Used" "Latency"
       printf "+%87s+\n" | tr ' ' '='
     fi
   } | parse_output
@@ -711,9 +799,27 @@ parse_iperf() {
         latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {(x ? p=int(log(x)/log(1000)) : p == 0 ); return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
-        BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output
-        unset send_speed rec_speed prot
+        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {(x ? p=int(log(x)/log(1000)) : p == 0 ); return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output | tee /dev/tty)
+        if [ -n "$arg_json" ]; then
+          $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+          awkres=$(printf "%s" "$awkres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres="${awkres#?}"; awkres="${awkres%?}"
+          IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
+          $awkres
+EOF
+          cat << PVFJ | $jq --argjson kj "$(cat)" '.network_bench.net_ipv4 += $kj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+          {
+            "$provid": {
+              "location": "$loc",
+              "send_speed": "$iperf_sendlog",
+              "rec_speed": "$iperf_reclog",
+              "latency": "$latency"
+            }
+          }
+PVFJ
+        fi
+        unset send_speed rec_speed prot awkres
       done
     }
     printf "+%81s+\n" | tr ' ' '-' | parse_output
@@ -731,9 +837,27 @@ parse_iperf() {
         latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {(x ? p=int(log(x)/log(1000)) : p == 0 ); return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
-        BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output
-        unset send_speed rec_speed prot
+        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {(x ? p=int(log(x)/log(1000)) : p == 0 ); return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output | tee /dev/tty)
+        if [ -n "$arg_json" ]; then
+          $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+          awkres=$(printf "%s" "$awkres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres="${awkres#?}"; awkres="${awkres%?}"
+          IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
+          $awkres
+EOF
+          cat << PVSJ | $jq --argjson xj "$(cat)" '.network_bench.net_ipv6 += $xj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+          {
+            "$provid": {
+              "location": "$loc",
+              "send_speed": "$iperf_sendlog",
+              "rec_speed": "$iperf_reclog",
+              "latency": "$latency"
+            }
+          }
+PVSJ
+        fi
+        unset send_speed rec_speed prot awkres
       done
     }
     printf "+%81s+\n" | tr ' ' '-' | parse_output
@@ -748,9 +872,31 @@ parse_speedtest() {
       sptval=$?
       overline
       if [ "$sptval" -ne 0 ]; then
-        printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "Failed" "To" "Get" "Data"
+        download="Failed"; upload="To"; data="Get"; latency="Data"
+        printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "$download" "$upload" "$data" "$latency"
       else
-        printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($7), hum($6), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output
+        sptres=$(printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output | tee /dev/tty)
+      fi
+      if [ -n "$arg_json" ]; then
+        sptres=$(printf "%s" "$sptres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+        sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(printf "%s" "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')
+        IFS='|' read -r prov loc download upload data latency <<SPTJSON
+        $sptres
+SPTJSON
+        cat <<SPTJSON | $jq --argjson spj "$(cat)" '.network_bench += $spj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+        {
+        	"test_method": "speedtest",
+        	"$provider": {
+        		"url": "$url",
+        		"location": "$loc",
+            "download": "$download",
+        		"upload": "$upload",
+        		"data_used": "$data",
+        		"latency": "$latency",
+            "speedlink": "$speedtestlink"
+        	}
+        }
+SPTJSON
       fi
     done
   }
@@ -810,6 +956,18 @@ geekbench_test() {
       printf "+%47s+\n" | tr ' ' '-'
       printf "| %-18s | %-24s |\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
       printf "+%47s+\n" | tr ' ' '-'
+      # JSON
+      if [ -n "$arg_json" ]; then
+        cat <<GBJSON | $jq --argjson gj "$(cat)" '.geekbench_test += $gj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+        {
+        	"gb_version": "$gb_string",
+        	"single_core": "$gb_single_core",
+        	"multi_core": "$gb_multi_core",
+        	"gb_link": "$gb_output",
+        	"benchy_spent": "$totalmin:$totalsec"
+        }
+GBJSON
+      fi
       rm -f "$gbfile"
     else
       printf "%s\n" "Geekbench $gb_version run failed, please retry again"
@@ -824,12 +982,14 @@ main() {
   header_intro
   user_arch
   binarycheck
+  opening_json
   sysinfo | parse_output
   disk_test
   if net_header; then
     [ -n "$arg_prefer_speedtest" ] && parse_speedtest || parse_iperf
   fi
-  geekbench_test && send_output
+  geekbench_test
+  closing_json; send_output
   [ -z "$arg_keep_file" ] && rm -fr -- "$benchy_path"
 }
 main

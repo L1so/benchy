@@ -43,6 +43,7 @@ Via curl.
 * [POSIX](https://pubs.opengroup.org/onlinepubs/9699919799.2018edition/) compliant, meaning in theory it should work on all platform that enforce POSIX. <sub>See [Portability](https://github.com/L1so/benchy#portability)</sub>
 * Support for multiple disk layout
 * Ability to pick iperf region
+* JSON Output
 
 ## Portability
 As of [fca1b99](https://github.com/L1so/benchy/commit/fca1b99b8fabeb563a8e6a628b82b4634e03b0f8), I have removed all [bashism](https://mywiki.wooledge.org/Bashism) from Benchy code and replace them with their POSIX counterpart. This of course to ensure portability between different kind of shells.
@@ -70,61 +71,57 @@ Benchy **may** also works on other distribution than previously stated. Be sure 
 This is sample output of benchy in action:
 ```
 # # # # # # # # # # # # # # # # # # # # #
-#             Benchy v1.9               #
+#             Benchy v2.0               #
 #    https://github.com/L1so/benchy     #
 # # # # # # # # # # # # # # # # # # # # #
-#	26 May 2022 22:32 WIB		#
+#        12 Jul 2022 18:34 WIB          #
 # # # # # # # # # # # # # # # # # # # # #
 
-Server Insight                                          Hardware Information
----------------------                                   ---------------------
-Org         : Shock Hosting LLC                         Model       : QEMU Virtual CPU version 2.5+
-Location    : Australia                                 Core        : 8 @ 3199.998 MHz
-Kernel      : 4.4.0-87-generic                          AES-NI      : ❌ Disabled
-Uptime      : 88 Days, 5 Hours, 46 Minute, 3 Seconds    VM-x/AMD-V  : ❌ Disabled
-Virt        : kvm                                       Swap        : 512.0 MiB 
+Server Insight                                         Hardware Information
+---------------------                                  ---------------------
+OS         : Ubuntu 16.04.7 LTS                        Model       : AMD Ryzen 9 5950X 16-Core Processor
+Location   : Singapore                                 Core        : 2 @ 3393.622 MHz
+Kernel     : 4.4.0-122-generic                         AES-NI      : ✔ Enabled
+Uptime     : 133 Days, 12 Hours, 25 Minute, 21 Seconds VM-x/AMD-V  : ✔ Enabled
+Virt       : kvm                                       Swap        : 3.0 GiB   
 
-Disk & Memory Usage                                     Network Data
----------------------                                   ---------------------
-Disk        : 117.7 GiB                                 ASN         : AS395092  
-Disk Usage  : 37.6 GiB (32% Used)                       ISP         : Shock Hosting LLC
-Mem         : 7.8 GiB                                   IPv4        : ✔ Enabled
-Mem Usage   : 1.2 GiB (15% Used)                        IPv6        : ✔ Enabled
+Disk & Memory Usage                                    Network Data
+---------------------                                  ---------------------
+Disk       : 34.4 GiB                                  ASN         : AS59253   
+Disk Usage : 16.3 GiB (50% Used)                       ISP         : Leaseweb Asia Pacific pte. ltd.
+Mem        : 2.9 GiB                                   IPv4        : ✔ Enabled
+Mem Usage  : 0.5 GiB (16% Used)                        IPv6        : ✔ Enabled
 
 Disk Performance Check (ext4 on /dev/vda1)
 +---------------------------------------------------------------------------+
 | Size | Read        | Write       | Total       |       IOPS (R,W,T)       |
 +===========================================================================+
-| 4k   | 213.69 MB/s | 214.26 MB/s | 427.95 MB/s | 54.7k  | 54.9k  | 109.5k |
-| 64k  | 2.55 GB/s   | 2.56 GB/s   | 5.12 GB/s   | 41.8k  | 42.1k  | 83.9k  |
-| 512k | 4.43 GB/s   | 4.67 GB/s   | 9.11 GB/s   | 9.1k   | 9.6k   | 18.6k  |
-| 1m   | 4.75 GB/s   | 5.07 GB/s   | 9.82 GB/s   | 4.9k   | 5.2k   | 10.1k  |
+| 4k   | 421.53 MB/s | 422.64 MB/s | 844.18 MB/s | 107.9k | 108.2k | 216.1k |
+| 64k  | 1.33 GB/s   | 1.33 GB/s   | 2.66 GB/s   | 21.8k  | 21.9k  | 43.7k  |
+| 512k | 2.05 GB/s   | 2.15 GB/s   | 4.20 GB/s   | 4.2k   | 4.4k   | 8.6k   |
+| 1m   | 1.95 GB/s   | 2.08 GB/s   | 4.04 GB/s   | 2.0k   | 2.1k   | 4.1k   |
 +---------------------------------------------------------------------------+
 
-Network Performance Test (Region: Oceania)
+Network Performance Test (Region: Asia)
 +---------------------------------------------------------------------------------+
 | Prot. | Provider    | Location        | Send         | Receive      | Latency   |
 +=================================================================================+
-| IPv4  | Clouvider   | London, UK      |  332.7 MB/s  |  127.0 MB/s  |  316.9 ms |
-|       | Airstream   | Wisconsin, USA  |  569.2 MB/s  |  149.0 MB/s  |  218.0 ms |
-|       | Hybula      | Amsterdam, NL   |  688.9 MB/s  |  539.4 MB/s  |  171.7 ms |
-|       | Wilhelm.tel | Hamburg, DE     |        busy  |        busy  |    0.0 ms |
+| IPv4  | Uztelecom   | Tashkent, UZ    |  866.1 MB/s  |  852.3 MB/s  |  179.3 ms |
+|       | Biznet      | Jakarta, ID     |    3.3 GB/s  |    4.0 GB/s  |   15.8 ms |
 +---------------------------------------------------------------------------------+
-| IPv6  | Clouvider   | London, UK      |  502.1 MB/s  |  264.6 MB/s  |  216.8 ms |
-|       | Airstream   | Wisconsin, USA  |  483.8 MB/s  |  208.3 MB/s  |  225.6 ms |
-|       | Hybula      | Amsterdam, NL   |  463.8 MB/s  |  431.7 MB/s  |  227.9 ms |
-|       | Wilhelm.tel | Hamburg, DE     |        busy  |        busy  |    0.0 ms |
+| IPv6  | Uztelecom   | Tashkent, UZ    |  877.3 MB/s  |  777.0 MB/s  |  186.2 ms |
+|       | Biznet      | Jakarta, ID     |        busy  |        busy  |    0.0 ms |
 +---------------------------------------------------------------------------------+
 
 +-----------------------------------------------+
 | Geekbench 5.4.4 Tryout for Linux x86 (64-bit) |
 +===============================================+
-| Single Core        | 729                      |
-| Multi Core         | 3332                     |
+| Single Core        | 1277                     |
+| Multi Core         | 2307                     |
 +-----------------------------------------------+
-| https://browser.geekbench.com/v5/cpu/15135759 |
+| https://browser.geekbench.com/v5/cpu/15967649 |
 +-----------------------------------------------+
-| Benchy time spent  | 7 Minutes 53 Seconds     |
+| Benchy time spent  | 4 Minutes 23 Seconds     |
 +-----------------------------------------------+
 
 
