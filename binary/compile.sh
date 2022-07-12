@@ -41,11 +41,13 @@ case "$pkg_param" in
   "iperf") is_iperf="yes";;
   "bc") is_bc="yes";;
   "util") is_util="yes";;
+  "jq") is_jq="yes";;
   "")
   is_fio="yes"
   is_iperf="yes"
   is_bc="yes"
   is_util="yes"
+  is_jq="yes"
   ;;
   *) echo "Invalid arg"; exit 1;;
 esac
@@ -88,11 +90,12 @@ if [ "$is_iperf" = "yes" ]; then
 fi
 if [ "$is_bc" = "yes" ]; then
   # Download bc
+  yum --disablerepo=phusion_centos-6-scl-i386,phusion_centos-6-scl-i386-source -y install texinfo ed
   cd $tmpdir
   curl -Lo $tmpdir/bc.tar.gz https://ftp.gnu.org/gnu/bc/bc-1.07.1.tar.gz
   tar -xzf $tmpdir/bc.tar.gz -C $tmpdir
   cd ./bc-1.07.1 && \
-  CC=$c_compiler LDFLAGS="-static" ./configure --with-readline --build x86_64-pc-linux-gnu --host $type && make
+  CC=$c_compiler LDFLAGS="-static" ./configure --with-readline --build x86_64-pc-linux-gnu --host $type && { make || true ; }
   cp bc/*bc /tmp/bc
 fi
 if [ "$is_util" = "yes" ]; then
@@ -114,12 +117,34 @@ if [ "$is_util" = "yes" ]; then
   make lsblk LDFLAGS="--static"
   cp lsblk /tmp/lsblk
 fi
+if [ "$is_jq" = "yes" ]; then
+  cd $tmpdir
+  # Download libtool
+  if [ ! -x "/usr/local/bin/libtool" ]; then
+    curl -Lo $tmpdir/lbtool.tar.gz https://ftp.gnu.org/gnu/libtool/libtool-2.4.6.tar.gz
+    tar -xzf $tmpdir/lbtool.tar.gz -C $tmpdir
+    cd $tmpdir/libtool-2.4.6 && ./configure && make && make install
+  fi
+  # Download automake
+  if [ ! -x "/usr/local/bin/automake" ]; then
+    curl -Lo $tmpdir/automake.tar.gz http://ftp.gnu.org/gnu/automake/automake-1.14.tar.gz
+    tar -xzf $tmpdir/automake.tar.gz -C $tmpdir
+    cd $tmpdir/automake-1.14 && ./configure && make && make install
+  fi
+  # Download jq
+  curl -Lo $tmpdir/jq.tar.gz https://github.com/stedolan/jq/releases/download/jq-1.6/jq-1.6.tar.gz
+  tar -xzf $tmpdir/jq.tar.gz -C $tmpdir
+  cd $tmpdir/jq-1.6 && autoreconf -fvi
+  CC=$c_compiler LDFLAGS="-static" ./configure --disable-docs --enable-all-static --build x86_64-pc-linux-gnu --host $type && { make || true ; }
+  cp -v ./jq /tmp/jq
+fi
 
 # Libcheck
 [ -x "/tmp/fio" ] && libcheck /tmp/fio && cp /tmp/fio /io/bin/fio/fio_$type && rm -f /tmp/fio
-[ -x "/tmp/iperf3" ] && libcheck /tmp/iperf3 && cp /tmp/bin/iperf/iperf3 /io/iperf_$type && rm -f /tmp/iperf3
+[ -x "/tmp/iperf3" ] && libcheck /tmp/iperf3 && cp /tmp/iperf3 /io/iperf_$type && rm -f /tmp/iperf3
 [ -x "/tmp/bc" ] && libcheck /tmp/bc && cp /tmp/bc /io/bin/bc/bc_$type && rm -f /tmp/bc
 [ -x "/tmp/lsblk" ] && libcheck /tmp/lsblk && cp /tmp/lsblk /io/bin/lsblk/lsblk_$type && rm -f /tmp/lsblk
+[ -x "/tmp/jq" ] && libcheck /tmp/jq && cp /tmp/jq /io/bin/jq/jq_$type && rm -f /tmp/jq
 # Cleaning
 rm -rf "$tmpdir"
 echo "Done"
