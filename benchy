@@ -105,7 +105,8 @@ outputdir="${outputdir:-/tmp}"
 if { [ -z "$arg_json" ] && [ -n "$arg_output_file" ] ; } || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi
 
 # Source https://gist.github.com/Akianonymus/25cfa570cb66821ab61846ceb0f9ca07
-convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; (x ? p=int(log(x)/log(1024)) : p == 0 ); printf("%0.1f %s\n" , x/1024^p, v[p+1] ); }'; }
+#convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; (x ? p=int(log(x)/log(1024)) : p == 0 ); printf("%0.1f %s\n" , x/1024^p, v[p+1] ); }'; }
+convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; if (x) p=int(log(x)/log(1024)); else p == 0; printf("%0.1f %s\n" , x/1024^p, v[p+1] ); }'; }
 core_pkg() {
   is_installed locale && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
   for pkg in tput tar; do
@@ -796,10 +797,10 @@ parse_iperf() {
         runiperf $url $port $provider $iperf_flags
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
-        latency=$(timeout 10 ping -4 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
+        latency=$(timeout 10 ping -4 -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {(x ? p=int(log(x)/log(1000)) : p == 0 ); return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
         BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
@@ -834,10 +835,10 @@ PVFJ
         runiperf $url $port $provider $iperf_flags
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
-        latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
+        latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {(x ? p=int(log(x)/log(1000)) : p == 0 ); return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
         BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
