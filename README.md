@@ -20,12 +20,27 @@ Options:
 ```
 
 ## Usage
+### Normal
 Via wget.
 
 	wget -qO- benchy.pw | sh
 Via curl.
 
 	curl -Ls benchy.pw | sh
+### Alias
+1. Add following command to your `.bashrc` or `.bash_aliases`.
+	- wget.
+	
+			benchy() { wget -qO- benchy.pw | sh -s -- "$@" }
+	- curl.
+	
+			benchy() { curl -Ls benchy.pw | sh -s -- "$@"; }
+2. Source the file then (e.g. `source ~/.bashrc` or `source ~/.bash_aliases`).
+3. You can now painlessly perform benchmark without typing long command. Be sure to check available option on [Supported Flag](https://github.com/L1so/benchy#supported-flag)
+	
+		$ benchy -v
+		v2.0
+
 ## Feature
 * Basic server information, this include but not limited to:
 	* Operating System
