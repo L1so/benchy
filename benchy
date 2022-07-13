@@ -406,7 +406,7 @@ sysinfo() {
   checkmark=$(printf '\342\234\224')
   crossmark=$(printf '\342\235\214')
   # Uptime
-  uptime_now=$(awk '{print int($1/86400)" Days, "int($1%86400/3600)" Hours, "int(($1%3600)/60)" Minute, "int($1%60)" Seconds "}' /proc/uptime)
+  uptime_now=$(awk '{print int($1/86400)" days, "int($1%86400/3600)" hrs, "int(($1%3600)/60)" mins, "int($1%60)" secs"}' /proc/uptime)
   # Location
   country=$(grep -o '"'"country"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
   awk -F',' "/$country/{ print \$3 }" $continent_list > $continent_file
@@ -448,14 +448,14 @@ sysinfo() {
   mem_percentage=$(free -b | awk 'NR==2{printf "%.0f%s\n", $3*100/$2, "%" }')
   swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
 
-  printf "%-55s%s\n" "Server Insight" "Hardware Information"
-  printf "%-55s%s\n" "---------------------" "---------------------"
-  printf "%-10s : %-42s%-11s : %-10s\n" "OS" "$currentOS" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
+  printf "%-48s%s\n" "Server Insight" "Hardware Information"
+  printf "%-48s%s\n" "---------------------" "---------------------"
+  printf "%-10s : %-35s%-11s : %-10s\n" "OS" "$currentOS" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
   "Kernel" "$kernelver" "AES-NI" "$cpu_aes" "Uptime" "$uptime_now" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type" "Swap" "$swap_info"
   echo
-  printf "%-55s%s\n" "Disk & Memory Usage" "Network Data"
-  printf "%-55s%s\n" "---------------------" "---------------------"
-  printf "%-10s : %-42s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$isp" \
+  printf "%-48s%s\n" "Disk & Memory Usage" "Network Data"
+  printf "%-48s%s\n" "---------------------" "---------------------"
+  printf "%-10s : %-35s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$isp" \
   "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage ($mem_percentage Used)" "IPv6" "$ipv6_string"
 
   # Parse to JSON
@@ -796,7 +796,7 @@ parse_iperf() {
         runiperf $url $port $provider $iperf_flags
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
-        latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
+        latency=$(timeout 10 ping -4 -qc5 $url 2>&1 | awk -F/ '/^rtt/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
         awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {(x ? p=int(log(x)/log(1000)) : p == 0 ); return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
