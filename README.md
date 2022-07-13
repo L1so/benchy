@@ -7,7 +7,8 @@ Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.co
 Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
-  -t, --temp-file         Remove benchy dependencies after run (default: keep storing)
+  -k, --keep-file         Keep benchy related files after successful run (default: Remove)
+  -j, --json              Store benchy result as json
   -n, --skip-network      Skip network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
@@ -31,7 +32,7 @@ Via curl.
 1. Add following command to your `.bashrc` or `.bash_aliases`.
 	- wget.
 	
-			benchy() { wget -qO- benchy.pw | sh -s -- "$@" }
+			benchy() { wget -qO- benchy.pw | sh -s -- "$@"; }
 	- curl.
 	
 			benchy() { curl -Ls benchy.pw | sh -s -- "$@"; }
