@@ -1,6 +1,29 @@
 # Benchy - AIO Benchmark Script
 
-Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to optimize the process.
+Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to optimize the process. [Benchy is known to work across several shells](https://github.com/L1so/benchy#portability).
+
+## Usage
+### Normal
+Via wget.
+
+	wget -qO- benchy.pw | sh
+Via curl.
+
+	curl -Ls benchy.pw | sh
+### Alias
+1. Add following command to your `.bashrc` or `.bash_aliases`.
+	- wget.
+	
+			benchy() { wget -qO- benchy.pw | sh -s -- "$@"; }
+	- curl.
+	
+			benchy() { curl -Ls benchy.pw | sh -s -- "$@"; }
+2. Source the file then (e.g. `. ~/.bashrc` or `. ~/.bash_aliases`).
+3. You can now painlessly perform benchmark without typing long command. Be sure to check available option on [Supported Flag](https://github.com/L1so/benchy#supported-flag)
+	
+		$ benchy -v
+		v2.0
+
 
 ## Supported flag
 ```
@@ -19,29 +42,6 @@ Options:
   -h, --help              Display this help section
   -v, --version           Display version
 ```
-
-## Usage
-### Normal
-Via wget.
-
-	wget -qO- benchy.pw | sh
-Via curl.
-
-	curl -Ls benchy.pw | sh
-### Alias
-1. Add following command to your `.bashrc` or `.bash_aliases`.
-	- wget.
-	
-			benchy() { wget -qO- benchy.pw | sh -s -- "$@"; }
-	- curl.
-	
-			benchy() { curl -Ls benchy.pw | sh -s -- "$@"; }
-2. Source the file then (e.g. `source ~/.bashrc` or `source ~/.bash_aliases`).
-3. You can now painlessly perform benchmark without typing long command. Be sure to check available option on [Supported Flag](https://github.com/L1so/benchy#supported-flag)
-	
-		$ benchy -v
-		v2.0
-
 ## Feature
 * Basic server information, this include but not limited to:
 	* Operating System
@@ -79,6 +79,7 @@ This section covers various Linux Distribution supported by benchy, each test co
 |Alpine Linux |3.11|✔|✔|❌|
 |Fedora|6|✔|✔|✔|
 |openSUSE Leap|15.1|✔|✔|✔|
+|Arch Linux|2021.12.01|✔️|✔|✔|
 
 Benchy **may** also works on other distribution than previously stated. Be sure to report any issues that you found.
 
@@ -86,60 +87,61 @@ Benchy **may** also works on other distribution than previously stated. Be sure 
 
 This is sample output of benchy in action:
 ```
+$ benchy -okjs
 # # # # # # # # # # # # # # # # # # # # #
 #             Benchy v2.0               #
 #    https://github.com/L1so/benchy     #
 # # # # # # # # # # # # # # # # # # # # #
-#        12 Jul 2022 18:34 WIB          #
+#        14 Jul 2022 14:50 WIB          #
 # # # # # # # # # # # # # # # # # # # # #
 
-Server Insight                                         Hardware Information
----------------------                                  ---------------------
-OS         : Ubuntu 16.04.7 LTS                        Model       : AMD Ryzen 9 5950X 16-Core Processor
-Location   : Singapore                                 Core        : 2 @ 3393.622 MHz
-Kernel     : 4.4.0-122-generic                         AES-NI      : ✔ Enabled
-Uptime     : 133 Days, 12 Hours, 25 Minute, 21 Seconds VM-x/AMD-V  : ✔ Enabled
-Virt       : kvm                                       Swap        : 3.0 GiB   
+Server Insight                                  Hardware Information
+---------------------                           ---------------------
+OS         : Ubuntu 18.04 LTS                   Model       : AMD EPYC 7402P 24-Core Processor
+Location   : Australia                          Core        : 2 @ 2794.748 MHz
+Kernel     : 4.15.0-22-generic                  AES-NI      : ✔ Enabled
+Uptime     : 44 days, 5 hrs, 41 mins, 53 secs   VM-x/AMD-V  : ✔ Enabled
+Virt       : kvm                                Swap        : 0.0 KiB   
 
-Disk & Memory Usage                                    Network Data
----------------------                                  ---------------------
-Disk       : 34.4 GiB                                  ASN         : AS59253   
-Disk Usage : 16.3 GiB (50% Used)                       ISP         : Leaseweb Asia Pacific pte. ltd.
-Mem        : 2.9 GiB                                   IPv4        : ✔ Enabled
-Mem Usage  : 0.5 GiB (16% Used)                        IPv6        : ✔ Enabled
+Disk & Memory Usage                             Network Data
+---------------------                           ---------------------
+Disk       : 78.7 GiB                           ASN         : AS136557  
+Disk Usage : 8.8 GiB (12% Used)                 ISP         : Host Universal Pty Ltd
+Mem        : 3.9 GiB                            IPv4        : ✔ Enabled
+Mem Usage  : 1.4 GiB (36% Used)                 IPv6        : ❌ Disabled
 
 Disk Performance Check (ext4 on /dev/vda1)
 +---------------------------------------------------------------------------+
 | Size | Read        | Write       | Total       |       IOPS (R,W,T)       |
 +===========================================================================+
-| 4k   | 421.53 MB/s | 422.64 MB/s | 844.18 MB/s | 107.9k | 108.2k | 216.1k |
-| 64k  | 1.33 GB/s   | 1.33 GB/s   | 2.66 GB/s   | 21.8k  | 21.9k  | 43.7k  |
-| 512k | 2.05 GB/s   | 2.15 GB/s   | 4.20 GB/s   | 4.2k   | 4.4k   | 8.6k   |
-| 1m   | 1.95 GB/s   | 2.08 GB/s   | 4.04 GB/s   | 2.0k   | 2.1k   | 4.1k   |
+| 4k   | 265.34 MB/s | 266.04 MB/s | 531.39 MB/s | 67.9k  | 68.1k  | 136.0k |
+| 64k  | 2.14 GB/s   | 2.15 GB/s   | 4.29 GB/s   | 35.1k  | 35.3k  | 70.4k  |
+| 512k | 3.71 GB/s   | 3.90 GB/s   | 7.61 GB/s   | 7.6k   | 8.0k   | 15.6k  |
+| 1m   | 4.04 GB/s   | 4.31 GB/s   | 8.36 GB/s   | 4.1k   | 4.4k   | 8.6k   |
 +---------------------------------------------------------------------------+
 
-Network Performance Test (Region: Asia)
-+---------------------------------------------------------------------------------+
-| Prot. | Provider    | Location        | Send         | Receive      | Latency   |
-+=================================================================================+
-| IPv4  | Uztelecom   | Tashkent, UZ    |  866.1 MB/s  |  852.3 MB/s  |  179.3 ms |
-|       | Biznet      | Jakarta, ID     |    3.3 GB/s  |    4.0 GB/s  |   15.8 ms |
-+---------------------------------------------------------------------------------+
-| IPv6  | Uztelecom   | Tashkent, UZ    |  877.3 MB/s  |  777.0 MB/s  |  186.2 ms |
-|       | Biznet      | Jakarta, ID     |        busy  |        busy  |    0.0 ms |
-+---------------------------------------------------------------------------------+
+Ookla Network Speedtest (Region: Oceania)
++---------------------------------------------------------------------------------------+
+| Provider    | Location          | Download     | Upload       | Data Used | Latency   |
++=======================================================================================+
+| Vocus       | Perth, AU         |  903.4 MB/s  |  746.6 MB/s  |    2.0 GB |   47.4 ms |
+| Telstra     | Sydney, AU        |  949.9 MB/s  |  822.9 MB/s  |    2.6 GB |   99.6 ms |
+| MyRepublic  | Auckland, NZ      |  950.0 MB/s  |  658.4 MB/s  |    2.3 GB |  122.0 ms |
+| Lightwire   | Hamilton, NZ      |  945.5 MB/s  |  669.5 MB/s  |    2.4 GB |  122.4 ms |
+| Vodafone    | Melbourne, AU     | Failed       | To           | Get       | Data      |
++---------------------------------------------------------------------------------------+
 
 +-----------------------------------------------+
 | Geekbench 5.4.4 Tryout for Linux x86 (64-bit) |
 +===============================================+
-| Single Core        | 1277                     |
-| Multi Core         | 2307                     |
+| Single Core        | 947                      |
+| Multi Core         | 1869                     |
 +-----------------------------------------------+
-| https://browser.geekbench.com/v5/cpu/15967649 |
+| https://browser.geekbench.com/v5/cpu/16003640 |
 +-----------------------------------------------+
-| Benchy time spent  | 4 Minutes 23 Seconds     |
+| Benchy time spent  | 4 Minutes 12 Seconds     |
 +-----------------------------------------------+
-
-
+| Benchy result      | http://sprunge.us/EYt7DP |
++-----------------------------------------------+
 ```
 

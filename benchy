@@ -684,7 +684,7 @@ EOF
     case "$continent" in
       "Asia")
       spt_provider=$(cat << 'EOF'
-Moratel|Jakarta, ID|jkt-speedtest.moratelindo.io
+Biznet|Jakarta, ID|speedtest.biznetnetworks.com
 Exabytes|Kuala Lumpur, MY|ookla.mschosting.com
 SingTel|Singapore, SG|speedtest.singnet.com.sg
 GLBB|Tokyo, JP|speedtest-xg-tokyo.glbb.ne.jp
@@ -703,8 +703,8 @@ EOF
       "Europe")
       spt_provider=$(cat << 'EOF'
 TestDebit|Marseille, FR|marseille.testdebit.info
-Wilhelm.Tel|Norderstedt, DE|speedtest.wtnet.de
-Quadhost|London, GB|uk-st1.quadhost.net
+Vancis|Amsterdam, NL|speedtest.vanciscloud.nl
+CoreIX|London, GB|speedtest.coreix.net
 Skynet|Warsaw, PL|speedtest.skynet.net.pl
 Vodafone|Milan, IT|speedtest.vodafone.it
 EOF
@@ -733,7 +733,7 @@ Vocus|Perth, AU|speedtest-pth.vocus.net
 Telstra|Sydney, AU|syd1.speedtest.telstra.net
 MyRepublic|Auckland, NZ|speedtest.myrepublic.co.nz
 Lightwire|Hamilton, NZ|speedtest.lightwire.co.nz
-Vodafone|Melbourne, AU|my1.speedtest.vodafone.com.au
+Optus|Marion, AU|marion.sa.speedtest.optusnet.com.au
 EOF
         );;
     esac
@@ -873,7 +873,7 @@ parse_speedtest() {
       sptval=$?
       overline
       if [ "$sptval" -ne 0 ]; then
-        download="Failed"; upload="To"; data="Get"; latency="Data"
+        download="Failed"; upload="To"; data="Get"; latency="Data"; speedtestlink="NaN"
         printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "$download" "$upload" "$data" "$latency"
       else
         sptres=$(printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output | tee /dev/tty)
