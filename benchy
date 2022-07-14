@@ -434,8 +434,8 @@ sysinfo() {
   fi
   cpu_core=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
   cpu_freq=$(awk 'NR==1{ print "@ "($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("@ %s MHz\n", $2); exit}}' /proc/cpuinfo)
-  grep -q -m 1 aes /proc/cpuinfo && cpu_aes="$checkmark Enabled" || cpu_aes="$crossmark Disabled"
-  grep -q -m 1 'vmx\|svm' /proc/cpuinfo && cpu_virt="$checkmark Enabled" || cpu_virt="$crossmark Disabled"
+  grep -q -m 1 aes /proc/cpuinfo && { cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; } || { cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; }
+  grep -q -m 1 'vmx\|svm' /proc/cpuinfo && { cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; } || { cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; }
   virt_type="$(print_virtualization)"
   virt_type="${virt_type:-none}"
 
@@ -473,8 +473,8 @@ sysinfo() {
       "hardware_information" : {
         "cpu_model" : "$cpu_model",
         "cpu_core" : "$cpu_core $cpu_freq",
-        "cpu_aes" : "$(echo $cpu_aes | tr -dc '[:alnum:]\n\r')",
-        "cpu_virt" : "$(echo $cpu_virt | tr -dc '[:alnum:]\n\r')",
+        "cpu_aes" : $cpu_aes_j,
+        "cpu_virt" : $cpu_virt_j,
         "swap" : "$swap_info"
       },
       "disk_info" : {
@@ -488,8 +488,8 @@ sysinfo() {
       "network_data" : {
         "asn" : "$asn",
         "isp" : "$isp",
-        "ipv4" : "$(echo $ipv4_string | tr -dc '[:alnum:]\n\r')",
-        "ipv6" : "$(echo $ipv6_string | tr -dc '[:alnum:]\n\r')"
+        "ipv4" : $ipv4_status,
+        "ipv6" : $ipv6_status
       }
     }
 SYSJSON
@@ -877,13 +877,15 @@ parse_speedtest() {
         printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "$download" "$upload" "$data" "$latency"
       else
         sptres=$(printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output | tee /dev/tty)
+        if [ -n "$arg_json" ]; then
+          sptres=$(printf "%s" "$sptres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(printf "%s" "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')
+          IFS='|' read -r prov loc download upload data latency <<SPTJSON
+          $sptres
+SPTJSON
+        fi
       fi
       if [ -n "$arg_json" ]; then
-        sptres=$(printf "%s" "$sptres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
-        sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(printf "%s" "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')
-        IFS='|' read -r prov loc download upload data latency <<SPTJSON
-        $sptres
-SPTJSON
         cat <<SPTJSON | $jq --argjson spj "$(cat)" '.network_bench += $spj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
         {
         	"test_method": "speedtest",
@@ -894,7 +896,7 @@ SPTJSON
         		"upload": "$upload",
         		"data_used": "$data",
         		"latency": "$latency",
-            "speedlink": "$speedtestlink"
+            "speedlink": "${speedtestlink:-NaN}"
         	}
         }
 SPTJSON
@@ -908,6 +910,8 @@ geekbench_test() {
   [ "$arg_skip_gb" = "true" ] && return 1
   # Exit if ipv6 only
   [ "$ipv4_status" = "false" ] && printf "%s\n" "Geekbench doesn't work over ipv6, exiting test.." && return 1
+  # Check if machine was musl library
+  if ldd /bin/ls | grep -q 'musl'; then printf "%s\n" "Geekbench does not support musl library, exiting test.." && return 1; fi
   print_space 1
   if [ "$gb_version" -eq 5 ]; then
     # Geekbench 5
