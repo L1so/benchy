@@ -8,7 +8,7 @@
 # arg_keep_file="true" # Equal to -k
 
 # Store result as json formatted output
-# arg_json_output="true" # Equal to -j
+# arg_json="true" # Equal to -j
 
 # Skip network benchmark
 # arg_skip_network="true" # Equal to -n
