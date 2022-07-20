@@ -1,0 +1,32 @@
+# Environmental file for benchy
+# Usage: Uncomment a function that you want to enable
+# Benchy will automatically detect any declared variable here
+
+# -------------------------------------------------- #
+
+# Keep benchy related files after successful run (default: Remove)
+# arg_keep_file="true" # Equal to -k
+
+# Store result as json formatted output
+# arg_json_output="true" # Equal to -j
+
+# Skip network benchmark
+# arg_skip_network="true" # Equal to -n
+
+# Skip disk benchmark
+# arg_skip_disk="true" # Equal to -d
+
+# Skip geekbench test
+# arg_skip_gb="true" # Equal to -g
+
+# Perform speedtest instead of iperf3
+# arg_prefer_speedtest="true" # Equal to -s
+
+# Specify region for network test (Valid value: Asia, Africa, Europe, North America, South America, Oceania, Mixed)
+# continent="" # Equal to -r {as,af,eu,na,sa,oc,mix} or --region={as,af,eu,na,sa,oc,mix}
+
+# Output result to file located in current directory
+# arg_output_file="true" # Equal to -o
+
+# Specify location for output
+# outputdir="/path/to/file" # Equal to -o /path/to/file or --output /path/to/file

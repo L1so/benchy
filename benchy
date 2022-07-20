@@ -24,6 +24,7 @@ display_help() {
 Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
+  -e, --grab-env          Pull benchy environmental file
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
   -j, --json              Store benchy result as json
   -n, --skip-network      Skip network measurement test
@@ -48,6 +49,7 @@ if [ "$#" != 0 ]; then
     case "$opt" in
       -k|--keep-file) arg_keep_file="true";;
       -j|--json) arg_json="true";;
+      -e|--grab-env) pull_env; exit 0;;
       -n|--skip-network) arg_skip_network="true";;
       -d|--skip-disk) arg_skip_disk="true";;
       -g|--skip-gb) arg_skip_gb="true";;
@@ -122,6 +124,12 @@ parse_output() {
   else
     cat
   fi
+}
+
+pull_env() {
+  printf "%s" "Pulling env file to current directory"
+  file_grabber "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt" "${PWD}/.benchy_opt"
+  printf "%s\n" " [DONE]"
 }
 
 send_output() {
