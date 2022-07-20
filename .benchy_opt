@@ -29,4 +29,4 @@
 # arg_output_file="true" # Equal to -o
 
 # Specify location for output
-# outputdir="/path/to/file" # Equal to -o /path/to/file or --output /path/to/file
+# directory="/path/to/file" # Equal to -o /path/to/file or --output /path/to/file
