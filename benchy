@@ -419,7 +419,8 @@ sysinfo() {
   uptime_now=$(awk '{print int($1/86400)" days, "int($1%86400/3600)" hrs, "int(($1%3600)/60)" mins, "int($1%60)" secs"}' /proc/uptime)
   # Location
   country=$(grep -o '"'"country"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
-  awk -F',' "/$country/{ print \$3 }" $continent_list > $continent_file
+  country_code=$(grep -o '"'"countryCode"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
+  awk -F',' "/$country_code/{ print \$3 }" $continent_list > $continent_file
   # Organization
   ispasn=$(grep -o '"'"as"'": *"[^"]*' $ipformation | awk -F\" '{ print $4 }')
   isp=$(printf %s "$ispasn" | cut -d" " -f 2-)
@@ -878,7 +879,7 @@ parse_speedtest() {
   {
     while IFS='|' read -r provider loc url; do
       printf %s "Performing Ookla Speedtest to $provider"
-      spt_res=$($speedtest --accept-gdpr --accept-license --progress=no --host $url --format=csv 2>/dev/null)
+      spt_res=$($speedtest --accept-gdpr --accept-license --progress=no --host $url --format=csv 2>/dev/null | sed ':a;s/^\(\([^"]*,\?\|"[^",]*",\?\)*"[^",]*\),/\1 /;ta')
       sptval=$?
       overline
       if [ "$sptval" -ne 0 ]; then
