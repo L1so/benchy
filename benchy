@@ -38,34 +38,18 @@ Options:
   -v, --version           Display version
 EOT
 }
-
-file_grabber() {
-  ddl_input="$1"
-  if [ "$filegrab" -eq 0 ]; then
-    case "$ddl_input" in
-      *cdn.geekbench.com*) _curl_opt="-L --progress-bar";;
-      *icanhazip.com*) _curl_opt="-s --connect-timeout 1 --max-time 1";;
-      *) _curl_opt="-kLs --connect-timeout 5 --retry 5 --retry-delay 0 -o $2";;
-    esac
-    curl $_curl_opt $ddl_input
-  elif [ "$filegrab" -eq 1 ]; then
-    case "$ddl_input" in
-      *cdn.geekbench.com*)
-      { wget --help 2>&1 | grep -q -- '--show-progress'; } && _wget_opt="-qO- --show-progress --progress=bar:force" || _wget_opt="-qO-"
-      ;;
-      *icanhazip.com*) _wget_opt="--timeout=1 --tries=1 -qO-";;
-      *) _wget_opt="-q -O $2";;
-    esac
-    wget $_wget_opt $ddl_input
-  fi
-}
-
-pull_env() {
-  printf "%s" "Pulling env file to current directory"
-  file_grabber "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt" "${PWD}/.benchy_opt"
-  printf "%s\n" " [DONE]"
-}
-
+is_installed() { command -v $1 >/dev/null 2>&1; }
+# Prioritize curl over wget
+if is_installed curl; then
+  # 0 Implies curl
+  filegrab=0
+elif is_installed wget; then
+  # 1 Implies wget
+  filegrab=1
+else
+  printf "%s\n" "Neither wget nor curl is exist" "Please install it first" >&2
+  exit 1
+fi
 # BEGIN OPTION PARSING (source https://stackoverflow.com/a/62616466/12289283)
 usage_error () { printf "%s\n%s\n" "$1" "Try 'benchy --help' to view available option" >&2; exit 2; }
 assert_argument () { { test "$1" != "$endofline" && case "$1" in -*) >&2 printf "%s\n" "$opt: Illegal input parameter ($1)"; exit 2;; esac; } || { printf "%s\n" "$2: requires an argument" >&2 && exit 2 ; }; }
@@ -77,7 +61,15 @@ if [ "$#" != 0 ]; then
     case "$opt" in
       -k|--keep-file) arg_keep_file="true";;
       -j|--json) arg_json="true";;
-      -e|--grab-env) pull_env; exit 0;;
+      -e|--grab-env)
+      printf "%s" "Pulling env file to current directory"
+      if [ "$filegrab" -eq 0 ]; then
+        curl -o "${PWD}/.benchy_opt" -kLs --connect-timeout 5 --retry 5 --retry-delay 0 "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt"
+      elif [ "$filegrab" -eq 1 ]; then
+        wget -qO "${PWD}/.benchy_opt" "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt"
+      fi
+      printf "%s\n" " [DONE]"; exit 0
+      ;;
       -n|--skip-network) arg_skip_network="true";;
       -d|--skip-disk) arg_skip_disk="true";;
       -g|--skip-gb) arg_skip_gb="true";;
@@ -189,7 +181,6 @@ format_disk() {
 overline() {
   printf "\r%s" "$(tput el)"
 }
-is_installed() { command -v $1 >/dev/null 2>&1; }
 print_space() { { printf "%${1}s" | tr ' ' '\n' ; } | parse_output; }
 
 cleanup() {
@@ -198,6 +189,26 @@ cleanup() {
 }
 trap cleanup 0 2 3 15
 
+file_grabber() {
+  ddl_input="$1"
+  if [ "$filegrab" -eq 0 ]; then
+    case "$ddl_input" in
+      *cdn.geekbench.com*) _curl_opt="-L --progress-bar";;
+      *icanhazip.com*) _curl_opt="-s --connect-timeout 1 --max-time 1";;
+      *) _curl_opt="-kLs --connect-timeout 5 --retry 5 --retry-delay 0 -o $2";;
+    esac
+    curl $_curl_opt $ddl_input
+  elif [ "$filegrab" -eq 1 ]; then
+    case "$ddl_input" in
+      *cdn.geekbench.com*)
+      { wget --help 2>&1 | grep -q -- '--show-progress'; } && _wget_opt="-qO- --show-progress --progress=bar:force" || _wget_opt="-qO-"
+      ;;
+      *icanhazip.com*) _wget_opt="--timeout=1 --tries=1 -qO-";;
+      *) _wget_opt="-q -O $2";;
+    esac
+    wget $_wget_opt $ddl_input
+  fi
+}
 print_virtualization() {
   if is_installed systemd-detect-virt; then
     user_virt=$(systemd-detect-virt)
@@ -302,18 +313,6 @@ binarycheck() {
   is_installed jq && jq="jq" || jq="$jq_path/jq"
   # Speedtest binary
   speedtest="$speedtest_path/speedtest"
-
-  # Prioritize curl over wget
-  if is_installed curl; then
-    # 0 Implies curl
-    filegrab=0
-  elif is_installed wget; then
-    # 1 Implies wget
-    filegrab=1
-  else
-    printf "%s\n" "Neither wget nor curl is exist" "Please install it first" >&2
-    exit 1
-  fi
 
   # IPv4 address
   ipv4_address=$(file_grabber ipv4.icanhazip.com)
