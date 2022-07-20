@@ -96,11 +96,10 @@ if [ "$#" != 0 ]; then
       shift
       ;;
       -o|--output)
-      arg_output_file="true"; [ -f "${PWD}/benchy.log" ] && rm -f "${PWD}/benchy.log"
-      outputdir=$1
+      arg_output_file="true"; outputdir=$1
       case "$outputdir" in
-        -*) outputdir="$(pwd)";;
-        "$endofline") outputdir="$(pwd)";;
+        -*) outputdir="$PWD";;
+        "$endofline") outputdir="$PWD";;
       esac
       ;;
       -h|--help) display_help; exit 0;;
@@ -117,14 +116,16 @@ if [ "$#" != 0 ]; then
 fi
 # END OPTION PARSING
 # Check for user default option
-if [ -f $HOME/.benchy_opt ]; then
-  . $HOME/.benchy_opt
-  [ -z "$outputdir" ] && outputdir=$directory
+if [ -f ${PWD}/.benchy_opt ]; then
+  . ${PWD}/.benchy_opt
+  [ -z "$directory" ] && outputdir="$PWD"
 fi
 outputdir="${outputdir:-/tmp}"
 { [ ! -d $outputdir ] || [ ! -w $outputdir ] ; } && { >&2 printf "%s\n" "$outputdir does not exist or not writable" && exit 2; }
 #if [ -z "$arg_json" ]; then if [ -n "$arg_output_file" ] || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi; fi
 if { [ -z "$arg_json" ] && [ -n "$arg_output_file" ] ; } || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi
+[ -n "$arg_json" ] && logext="json" || logext="log"
+if [ -n "$arg_output_file" ]; then [ -f "${outputdir}/benchy.${logext}" ] && rm -f "${outputdir}/benchy.${logext}"; fi
 
 # Source https://gist.github.com/Akianonymus/25cfa570cb66821ab61846ceb0f9ca07
 #convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; (x ? p=int(log(x)/log(1024)) : p == 0 ); printf("%0.1f %s\n" , x/1024^p, v[p+1] ); }'; }
@@ -147,8 +148,7 @@ parse_output() {
 }
 
 send_output() {
-  if { [ -f "$outputdir/benchy.log" ] && [ -f "$outputdir/benchy.json" ]; } && { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then
-    [ -n "$arg_json" ] && logext="json" || logext="log"
+  if [ -f "$outputdir/benchy.${logext}" ] && { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then
     resulturl=$(
     if [ "$filegrab" -eq 0 ]; then
       curl -sS -F 'sprunge=<-' http://sprunge.us < $outputdir/benchy.${logext}

@@ -2,6 +2,16 @@
 
 Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to optimize the process. [Benchy is known to work across several shells](https://github.com/L1so/benchy#portability).
 
+## Table of Contents
+- [Usage](https://github.com/L1so/benchy#usage)
+	+ [Normal](https://github.com/L1so/benchy#normal)
+	+ [Alias](https://github.com/L1so/benchy#alias)
+- [Feature](https://github.com/L1so/benchy#feature)
+- [Supported Flag](https://github.com/L1so/benchy#supported-flag)
+- [Portability](https://github.com/L1so/benchy#portability)
+- [Requirement](https://github.com/L1so/benchy#requirement)
+- [Example Output](https://github.com/L1so/benchy#example-output)
+
 ## Usage
 ### Normal
 Via wget.
@@ -30,6 +40,7 @@ Via curl.
 Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
+  -e, --grab-env          Pull benchy environmental file
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
   -j, --json              Store benchy result as json
   -n, --skip-network      Skip network measurement test
@@ -87,61 +98,61 @@ Benchy **may** also works on other distribution than previously stated. Be sure 
 
 This is sample output of benchy in action:
 ```
-$ benchy -okjs
+$ benchy -oks
 # # # # # # # # # # # # # # # # # # # # #
 #             Benchy v2.0               #
 #    https://github.com/L1so/benchy     #
 # # # # # # # # # # # # # # # # # # # # #
-#        14 Jul 2022 14:50 WIB          #
+#        20 Jul 2022 18:59 WIB          #
 # # # # # # # # # # # # # # # # # # # # #
 
 Server Insight                                  Hardware Information
 ---------------------                           ---------------------
-OS         : Ubuntu 18.04 LTS                   Model       : AMD EPYC 7402P 24-Core Processor
-Location   : Australia                          Core        : 2 @ 2794.748 MHz
-Kernel     : 4.15.0-22-generic                  AES-NI      : ✔ Enabled
-Uptime     : 44 days, 5 hrs, 41 mins, 53 secs   VM-x/AMD-V  : ✔ Enabled
-Virt       : kvm                                Swap        : 0.0 KiB   
+OS         : Ubuntu 14.04.6 LTS                 Model       : QEMU Virtual CPU version 2.5+
+Location   : Indonesia                          Core        : 4 @ 2199.998 MHz
+Kernel     : 4.4.0-93-generic                   AES-NI      : ❌ Disabled
+Uptime     : 20 days, 18 hrs, 58 mins, 29 secs  VM-x/AMD-V  : ❌ Disabled
+Virt       : none                               Swap        : 4.0 GiB   
 
 Disk & Memory Usage                             Network Data
 ---------------------                           ---------------------
-Disk       : 78.7 GiB                           ASN         : AS136557  
-Disk Usage : 8.8 GiB (12% Used)                 ISP         : Host Universal Pty Ltd
-Mem        : 3.9 GiB                            IPv4        : ✔ Enabled
-Mem Usage  : 1.4 GiB (36% Used)                 IPv6        : ❌ Disabled
+Disk       : 45.2 GiB                           ASN         : AS140389  
+Disk Usage : 9.4 GiB (23% Used)                 ISP         : PT Dewa Bisnis Digital
+Mem        : 7.8 GiB                            IPv4        : ✔ Enabled
+Mem Usage  : 2.8 GiB (36% Used)                 IPv6        : ❌ Disabled
 
 Disk Performance Check (ext4 on /dev/vda1)
 +---------------------------------------------------------------------------+
 | Size | Read        | Write       | Total       |       IOPS (R,W,T)       |
 +===========================================================================+
-| 4k   | 265.34 MB/s | 266.04 MB/s | 531.39 MB/s | 67.9k  | 68.1k  | 136.0k |
-| 64k  | 2.14 GB/s   | 2.15 GB/s   | 4.29 GB/s   | 35.1k  | 35.3k  | 70.4k  |
-| 512k | 3.71 GB/s   | 3.90 GB/s   | 7.61 GB/s   | 7.6k   | 8.0k   | 15.6k  |
-| 1m   | 4.04 GB/s   | 4.31 GB/s   | 8.36 GB/s   | 4.1k   | 4.4k   | 8.6k   |
+| 4k   | 23.21 MB/s  | 23.22 MB/s  | 46.44 MB/s  | 5.9k   | 5.9k   | 11.9k  |
+| 64k  | 325.82 MB/s | 327.54 MB/s | 653.37 MB/s | 5.2k   | 5.2k   | 10.4k  |
+| 512k | 0.99 GB/s   | 1.04 GB/s   | 2.03 GB/s   | 2.0k   | 2.1k   | 4.2k   |
+| 1m   | 1.04 GB/s   | 1.11 GB/s   | 2.16 GB/s   | 1.1k   | 1.1k   | 2.2k   |
 +---------------------------------------------------------------------------+
 
-Ookla Network Speedtest (Region: Oceania)
+Ookla Network Speedtest (Region: Asia)
 +---------------------------------------------------------------------------------------+
 | Provider    | Location          | Download     | Upload       | Data Used | Latency   |
 +=======================================================================================+
-| Vocus       | Perth, AU         |  903.4 MB/s  |  746.6 MB/s  |    2.0 GB |   47.4 ms |
-| Telstra     | Sydney, AU        |  949.9 MB/s  |  822.9 MB/s  |    2.6 GB |   99.6 ms |
-| MyRepublic  | Auckland, NZ      |  950.0 MB/s  |  658.4 MB/s  |    2.3 GB |  122.0 ms |
-| Lightwire   | Hamilton, NZ      |  945.5 MB/s  |  669.5 MB/s  |    2.4 GB |  122.4 ms |
-| Vodafone    | Melbourne, AU     | Failed       | To           | Get       | Data      |
+| Biznet      | Jakarta, ID       |  813.3 MB/s  |  682.9 MB/s  |    1.7 GB |    1.3 ms |
+| Exabytes    | Kuala Lumpur, MY  |  192.4 MB/s  |  165.5 MB/s  |    0.5 GB |   19.3 ms |
+| SingTel     | Singapore, SG     |  388.7 MB/s  |  216.8 MB/s  |    0.6 GB |   14.2 ms |
+| GLBB        | Tokyo, JP         |  216.5 MB/s  |  136.5 MB/s  |    0.5 GB |   78.6 ms |
+| Airtel      | Chennai, IN       |  329.6 MB/s  |  150.3 MB/s  |    0.6 GB |   44.3 ms |
 +---------------------------------------------------------------------------------------+
 
 +-----------------------------------------------+
 | Geekbench 5.4.4 Tryout for Linux x86 (64-bit) |
 +===============================================+
-| Single Core        | 947                      |
-| Multi Core         | 1869                     |
+| Single Core        | 496                      |
+| Multi Core         | 1728                     |
 +-----------------------------------------------+
-| https://browser.geekbench.com/v5/cpu/16003640 |
+| https://browser.geekbench.com/v5/cpu/16123617 |
 +-----------------------------------------------+
-| Benchy time spent  | 4 Minutes 12 Seconds     |
+| Benchy time spent  | 6 Minutes 29 Seconds     |
 +-----------------------------------------------+
-| Benchy result      | http://sprunge.us/EYt7DP |
+| Benchy result      | http://sprunge.us/Ef6Uio |
 +-----------------------------------------------+
 ```
 
