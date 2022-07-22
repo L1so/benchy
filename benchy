@@ -27,6 +27,7 @@ Options:
   -e, --grab-env          Pull benchy environmental file
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
   -j, --json              Store benchy result as json
+  -m, --region            Enable region based network test, otherwise will use mixed source
   -n, --skip-network      Skip network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
@@ -61,6 +62,7 @@ if [ "$#" != 0 ]; then
     case "$opt" in
       -k|--keep-file) arg_keep_file="true";;
       -j|--json) arg_json="true";;
+      -m|--region) arg_use_region="true";;
       -e|--grab-env)
       printf "%s" "Pulling env file to current directory"
       if [ "$filegrab" -eq 0 ]; then
@@ -122,13 +124,12 @@ if [ -f ${PWD}/.benchy_opt ]; then
 fi
 outputdir="${outputdir:-/tmp}"
 { [ ! -d $outputdir ] || [ ! -w $outputdir ] ; } && { >&2 printf "%s\n" "$outputdir does not exist or not writable" && exit 2; }
-#if [ -z "$arg_json" ]; then if [ -n "$arg_output_file" ] || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi; fi
 if { [ -z "$arg_json" ] && [ -n "$arg_output_file" ] ; } || { [ -z "$arg_skip_disk" ] && [ -z "$arg_skip_network" ] && [ -z "$arg_skip_gb" ]; }; then parseit="true"; fi
 [ -n "$arg_json" ] && logext="json" || logext="log"
+{ [ -z "$arg_use_region" ] && [ -z "$continent" ]; } && continent="Mixed"
 if [ -n "$arg_output_file" ]; then [ -f "${outputdir}/benchy.${logext}" ] && rm -f "${outputdir}/benchy.${logext}"; fi
 
 # Source https://gist.github.com/Akianonymus/25cfa570cb66821ab61846ceb0f9ca07
-#convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; (x ? p=int(log(x)/log(1024)) : p == 0 ); printf("%0.1f %s\n" , x/1024^p, v[p+1] ); }'; }
 convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; if (x) p=int(log(x)/log(1024)); else p == 0; printf("%0.1f %s\n" , x/1024^p, v[p+1] ); }'; }
 core_pkg() {
   is_installed locale && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
@@ -328,7 +329,7 @@ binarycheck() {
     # IP Information
     [ ! -e $ipformation ] && file_grabber "ip-api.com/json" $ipformation
     # Continent.csv
-    [ ! -e $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list
+    [ -n "$arg_use_region" ] && { [ ! -e $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list; }
     # Download fio if not exist
     if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
       mkdir -p $fio_path
@@ -420,7 +421,7 @@ sysinfo() {
   # Location
   country=$(grep -o '"'"country"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
   country_code=$(grep -o '"'"countryCode"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
-  awk -F',' "/$country_code/{ print \$3 }" $continent_list > $continent_file
+  [ -n "$arg_use_region" ] && awk -F',' "/$country_code/{ print \$3 }" $continent_list > $continent_file
   # Organization
   ispasn=$(grep -o '"'"as"'": *"[^"]*' $ipformation | awk -F\" '{ print $4 }')
   isp=$(printf %s "$ispasn" | cut -d" " -f 2-)
@@ -438,7 +439,7 @@ sysinfo() {
 
   # Processor information
   if is_installed lscpu && { lscpu 2>&1 | grep -q -- 'Model name' ; }; then
-    cpu_model=$(lscpu | awk -F: '/Model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}}' | sed 's/\(.\{41\}\).*/\1/')
+    cpu_model=$(lscpu | awk -F: '/Model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' | sed 's/\(.\{41\}\).*/\1/')
   else
     cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' /proc/cpuinfo | sed 's/\(.\{41\}\).*/\1/')
   fi
@@ -633,10 +634,10 @@ netlist() {
   [ -z "$continent" ] && continent=$(cat $continent_file)
   if [ -z "$arg_prefer_speedtest" ]; then
     mixedipv4=$(cat << 'EOF'
-Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
+Clouvider|Dallas, US|5200-5209|dal.speedtest.clouvider.net
 Airstream|Wisconsin, USA|5201-5205|iperf.airstreamcomm.net
 Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
-Wilhelm.tel|Hamburg, DE|5200-5209|speedtest.wtnet.de
+Clouvider|Frankfurt, DE|5200-5209|fra.speedtest.clouvider.net
 EOF
     )
     mixedipv6=$mixedipv4
@@ -657,7 +658,7 @@ EOF
       ipv4_provider=$(cat << 'EOF'
 Airstream|Wisconsin, US|5201-5205|iperf.airstreamcomm.net
 Clouvider|Dallas, US|5200-5209|dal.speedtest.clouvider.net
-OVH|Quebec, CA|5201-5210|bhs.proof.ovh.ca
+Clouvider|Phoenix, US|5200-5209|phx.speedtest.clouvider.net
 Clouvider|Los Angeles, US|5200-5209|la.speedtest.clouvider.net
 EOF
       )
@@ -810,7 +811,7 @@ parse_iperf() {
         latency=$(timeout 10 ping -4 -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
         BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
@@ -848,7 +849,7 @@ PVFJ
         latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "KB/s MB/s GB/s TB/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
         BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"

@@ -10,6 +10,9 @@
 # Store result as json formatted output
 # arg_json="true" # Equal to -j
 
+# Enable region based network test, otherwise will use mixed source
+# arg_use_region="true" # Equal to -m
+
 # Skip network benchmark
 # arg_skip_network="true" # Equal to -n
 

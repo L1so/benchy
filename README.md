@@ -43,6 +43,7 @@ Options:
   -e, --grab-env          Pull benchy environmental file
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
   -j, --json              Store benchy result as json
+  -m, --region            Enable region based network test, otherwise will use mixed source
   -n, --skip-network      Skip network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
