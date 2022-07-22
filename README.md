@@ -6,7 +6,7 @@ Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.co
 - [Usage](https://github.com/L1so/benchy#usage)
 	+ [Normal](https://github.com/L1so/benchy#normal)
 	+ [Alias](https://github.com/L1so/benchy#alias)
-	+ [Environtment Variable](https://github.com/L1so/benchy#environment-variable)
+	+ [Environment Variable](https://github.com/L1so/benchy#environment-variable)
 - [Feature](https://github.com/L1so/benchy#feature)
 - [Supported Flag](https://github.com/L1so/benchy#supported-flag)
 - [Portability](https://github.com/L1so/benchy#portability)
