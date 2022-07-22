@@ -887,7 +887,7 @@ parse_speedtest() {
         download="Failed"; upload="To"; data="Get"; latency="Data"; speedtestlink="NaN"
         printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "$download" "$upload" "$data" "$latency"
       else
-        sptres=$(printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "B/s KB/s MB/s GB/s TB/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output | tee /dev/tty)
+        sptres=$(printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "b/s Kb/s Mb/s Gb/s Tb/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           sptres=$(printf "%s" "$sptres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(printf "%s" "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')

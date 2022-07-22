@@ -1,4 +1,4 @@
-# Benchy - AIO Benchmark Script
+# Benchy - Server Benchmarking Script
 
 Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to optimize the process. [Benchy is known to work across several shells](https://github.com/L1so/benchy#portability).
 
@@ -6,6 +6,7 @@ Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.co
 - [Usage](https://github.com/L1so/benchy#usage)
 	+ [Normal](https://github.com/L1so/benchy#normal)
 	+ [Alias](https://github.com/L1so/benchy#alias)
+	+ [Environtment Variable](https://github.com/L1so/benchy#environment-variable)
 - [Feature](https://github.com/L1so/benchy#feature)
 - [Supported Flag](https://github.com/L1so/benchy#supported-flag)
 - [Portability](https://github.com/L1so/benchy#portability)
@@ -34,7 +35,18 @@ Via curl.
 		$ benchy -v
 		v2.0
 
-
+### Environment Variable
+If you find yourself perform benchmark alot, you may find this feature useful. By default benchy will find if `.benchy_opt` exist on current directory, and will read variable defined there.
+1. Download the template.
+	```
+	wget -qO- benchy.pw | sh -s -- -e
+	```
+2. [Uncomment any function that you wish to enable.](https://github.com/L1so/benchy/blob/main/.benchy_opt)
+3. Run benchy as usual, without any option.
+	```
+	wget -qO- benchy.pw
+	```
+	You will see `Found predefined option !` message in your screen.
 ## Supported flag
 ```
 Usage: benchy [options]
