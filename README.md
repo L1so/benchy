@@ -54,6 +54,8 @@ Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
   -e, --grab-env          Pull benchy environmental file
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
+  -4, --geekbench4        Utilize ONLY geekbench 4 instead of 5
+  -q, --geekbench         Utilize both geekbench 4 and 5
   -j, --json              Store benchy result as json
   -m, --region            Enable region based network test, otherwise will use mixed source
   -n, --skip-network      Skip network measurement test

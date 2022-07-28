@@ -13,6 +13,12 @@
 # Enable region based network test, otherwise will use mixed source
 # arg_use_region="true" # Equal to -m
 
+# Utilize ONLY geekbench 4 instead of 5
+# arg_use_gb4="true" # Equal to -4
+
+# Utilize both geekbench 4 and 5
+# arg_use_gb45="true" # Equal to -q
+
 # Skip network benchmark
 # arg_skip_network="true" # Equal to -n
 
