@@ -494,7 +494,7 @@ sysinfo() {
   echo
   printf "%-48s%s\n" "Disk & Memory Usage" "Network Data"
   printf "%-48s%s\n" "---------------------" "---------------------"
-  printf "%-10s : %-35s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$isp" \
+  printf "%-10s : %-35s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$(printf "%s" "$isp" | sed 's/\(.\{41\}\).*/\1../')" \
   "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage ($mem_percentage Used)" "IPv6" "$ipv6_string"
 
   # Parse to JSON
