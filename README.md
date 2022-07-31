@@ -44,7 +44,7 @@ If you find yourself perform benchmark alot, you may find this feature useful. B
 2. [Uncomment any function that you wish to enable.](https://github.com/L1so/benchy/blob/main/.benchy_opt)
 3. Run benchy as usual, without any option.
 	```
-	wget -qO- benchy.pw
+	wget -qO- benchy.pw | sh
 	```
 	You will see `Found predefined option !` message in your screen.
 ## Supported flag
