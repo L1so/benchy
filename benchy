@@ -731,11 +731,11 @@ EOF
       );;
       "Africa")
       spt_provider=$(cat << 'EOF'
-Seacom|Cape Town, ZA|sl-01-cpt.za.seacomnet.com
-Vodacom|Lagos, NG|speedtest1.vodacom.com.ng
+PCN|Cape Town, ZA|speedtest.pcn.co.za
+Vodacom|Durban, ZA|speedtest.dne.vodacombusiness.co.za
 Sonatel|Dakar, SN|mondebit1.orange.sn
-Orange TN|Ariana, TN|sp1.orange.tn
-Airtel|Brazzaville, CG|ooklabzv.cg.airtel.com
+Maroc|Rabat, MA|speedtest.iam.ma
+MTN|Brazzaville, CG|speedtest.mtncongo.net
 EOF
       );;
       "Europe")
@@ -758,10 +758,10 @@ EOF
         );;
         "South America")
         spt_provider=$(cat << 'EOF'
-Orbitel|Brasilia, BR|speedtest.orbitel.com.br
+Claro|Montevidio, UY|speedtest.claro.com.uy
 TLINK|Santiago, CL|speedtest.tlink.cl
-Avantel|Bogota, CO|speedtest.avantel.com.co
-DirecTV|Buenos Aires, AR|speedtest.directvnet.com.ar
+MEGANET|Barretos, BR|speedtest.meganet.com.vc
+Express|Rosario, AR|speedtest.express.com.ar
 RCTELECOM|Sao Paulo, BR|speedtest.rctelecomnet.com.br
 EOF
         );;
@@ -771,7 +771,16 @@ Vocus|Perth, AU|speedtest-pth.vocus.net
 Telstra|Sydney, AU|syd1.speedtest.telstra.net
 MyRepublic|Auckland, NZ|speedtest.myrepublic.co.nz
 Lightwire|Hamilton, NZ|speedtest.lightwire.co.nz
-Optus|Marion, AU|marion.sa.speedtest.optusnet.com.au
+Telstra|Chatswood, AU|cha1.speedtest.telstra.net
+EOF
+        );;
+        "Mixed")
+        spt_provider=$(cat << 'EOF'
+Biznet|Jakarta, ID|speedtest.biznetnetworks.com
+Claro|Montevidio, UY|speedtest.claro.com.uy
+CoreIX|London, GB|speedtest.coreix.net
+Lightwire|Hamilton, NZ|speedtest.lightwire.co.nz
+Airstream|Wisconsin, US|speedtest.airstreamcomm.net
 EOF
         );;
     esac
@@ -903,21 +912,24 @@ PVSJ
   fi
 }
 parse_speedtest() {
+  sptfifo="${benchy_path}/speedtest.fifo"; spt_res="${benchy_path}/speedtest.temp"
+  [ -p "$sptfifo" ] || mkfifo -m 600 "$sptfifo"
   echo "$spt_provider" |
   {
     while IFS='|' read -r provider loc url; do
       printf %s "Performing Ookla Speedtest to $provider"
-      spt_res=$($speedtest --accept-gdpr --accept-license --progress=no --host $url --format=csv 2>/dev/null | sed ':a;s/^\(\([^"]*,\?\|"[^",]*",\?\)*"[^",]*\),/\1 /;ta')
+      ( sed ':a;s/^\(\([^"]*,\?\|"[^",]*",\?\)*"[^",]*\),/\1 /;ta' < $sptfifo | tee $spt_res >/dev/null & )
+      $speedtest --accept-gdpr --accept-license --progress=no --host $url --format=csv > $sptfifo 2>/dev/null
       sptval=$?
       overline
       if [ "$sptval" -ne 0 ]; then
         download="Failed"; upload="To"; data="Get"; latency="Data"; speedtestlink="NaN"
         printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "$download" "$upload" "$data" "$latency"
       else
-        sptres=$(printf %s "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "b/s Kb/s Mb/s Gb/s Tb/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output | tee /dev/tty)
+        sptres=$(cat "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "b/s Kb/s Mb/s Gb/s Tb/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           sptres=$(printf "%s" "$sptres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
-          sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(printf "%s" "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')
+          sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(cat "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')
           IFS='|' read -r prov loc download upload data latency <<SPTJSON
           $sptres
 SPTJSON
@@ -942,6 +954,7 @@ SPTJSON
     done
   }
   printf "+%87s+\n" | tr ' ' '-' | parse_output
+  rm -f $sptfifo $spt_res
 }
 geekbench_test() {
   # Skip geekbench on input argument
