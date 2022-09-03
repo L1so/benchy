@@ -66,14 +66,14 @@ if [ "$is_fio" = "yes" ]; then
   # Download fio
   #1 of 2
   cd $tmpdir
-  curl -Lo $tmpdir/libaio.tar.xz https://ftp.debian.org/debian/pool/main/liba/libaio/libaio_0.3.112.orig.tar.xz
-  tar -xf $tmpdir/libaio.tar.xz -C $tmpdir
-  cd ./libaio-0.3.112 && CC=$c_compiler ENABLE_SHARED=0 LDFLAGS="-static" make prefix=/hbb_exe install
+  curl -Lo $tmpdir/libaio.tar.gz https://ftp.debian.org/debian/pool/main/liba/libaio/libaio_0.3.113.orig.tar.gz
+  tar -xzf $tmpdir/libaio.tar.gz -C $tmpdir
+  cd ./libaio-0.3.113 && CC=$c_compiler ENABLE_SHARED=0 LDFLAGS="-static" make prefix=/hbb_exe install
   #2 of 2
   cd $tmpdir
-  curl -Lo $tmpdir/fio.tar.gz https://git.kernel.org/pub/scm/linux/kernel/git/axboe/fio.git/snapshot/fio-3.30.tar.gz
+  curl -Lo $tmpdir/fio.tar.gz https://git.kernel.org/pub/scm/linux/kernel/git/axboe/fio.git/snapshot/fio-3.32.tar.gz
   tar -xzf $tmpdir/fio.tar.gz -C $tmpdir
-  cd ./fio-3.30 && \
+  cd ./fio-3.32 && \
   ./configure \
   --cc=$c_compiler \
   --build-static \
