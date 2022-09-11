@@ -33,7 +33,7 @@ Via curl.
 3. You can now painlessly perform benchmark without typing long command. Be sure to check available option on [Supported Flag](https://github.com/L1so/benchy#supported-flag)
 	
 		$ benchy -v
-		v2.0
+		v2.2
 
 ### Environment Variable
 If you find yourself perform benchmark alot, you may find this feature useful. By default benchy will find if `.benchy_opt` exist on current directory, and will read variable defined there.
@@ -83,7 +83,7 @@ Options:
 * Server Uptime
 * Fallback to `wget` if `curl` is not installed (this applied to Debian based system, where `curl` is not installed by default)
 * [POSIX](https://pubs.opengroup.org/onlinepubs/9699919799.2018edition/) compliant, meaning in theory it should work on all platform that enforce POSIX. <sub>See [Portability](https://github.com/L1so/benchy#portability)</sub>
-* Support for multiple disk layout
+* Bench multiple disk at one time
 * Ability to pick iperf region
 * JSON Output
 
@@ -113,61 +113,61 @@ Benchy **may** also works on other distribution than previously stated. Be sure 
 
 This is sample output of benchy in action:
 ```
-$ benchy -oks
+$ wget -qO- benchy.pw | bash -s -- -oks
 # # # # # # # # # # # # # # # # # # # # #
-#             Benchy v2.1               #
+#             Benchy v2.2               #
 #    https://github.com/L1so/benchy     #
 # # # # # # # # # # # # # # # # # # # # #
-#        20 Aug 2022 11:59 WIB          #
+#        10 Sep 2022 14:16 WIB          #
 # # # # # # # # # # # # # # # # # # # # #
 
 Server Insight                                  Hardware Information
 ---------------------                           ---------------------
-OS         : Ubuntu 18.04.6 LTS                 Model       : QEMU Virtual CPU version 2.5+
-Location   : Singapore                          Core        : 8 @ 3199.998 MHz
-Kernel     : 4.15.0-20-generic                  AES-NI      : ❌ Disabled
-Uptime     : 0 days, 0 hrs, 3 mins, 6 secs      VM-x/AMD-V  : ❌ Disabled
-Virt       : kvm                                Swap        : 512.0 MiB 
+OS         : Ubuntu 18.04 LTS                   Model       : Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz
+Location   : Singapore                          Core        : 2 @ 2199.944 MHz
+Kernel     : 4.15.0-192-generic                 AES-NI      : ✔ Enabled
+Uptime     : 0 days, 0 hrs, 0 mins, 59 secs     VM-x/AMD-V  : ✔ Enabled
+Virt       : kvm                                Swap        : 2.0 GiB   
 
 Disk & Memory Usage                             Network Data
 ---------------------                           ---------------------
-Disk       : 118.1 GiB                          ASN         : AS395092  
-Disk Usage : 3.7 GiB (4% Used)                  ISP         : Shock Hosting LLC
-Mem        : 7.8 GiB                            IPv4        : ✔ Enabled
-Mem Usage  : 0.1 GiB (2% Used)                  IPv6        : ✔ Enabled
+Disk       : 32.4 GiB                           ASN         : AS59253   
+Disk Usage : 5.9 GiB (20% Used)                 ISP         : Leaseweb Asia Pacific pte. ltd.
+Mem        : 3.9 GiB                            IPv4        : ✔ Enabled
+Mem Usage  : 0.2 GiB (5% Used)                  IPv6        : ❌ Disabled
 
-Disk Performance Check (ext4 on /dev/vda1)
+Disk Performance Check (ext4 on /dev/vda2)
 +---------------------------------------------------------------------------+
 | Size | Read        | Write       | Total       |       IOPS (R,W,T)       |
 +===========================================================================+
-| 4k   | 323.87 MB/s | 324.73 MB/s | 648.61 MB/s | 82.9k  | 83.1k  | 166.0k |
-| 64k  | 4.21 GB/s   | 4.23 GB/s   | 8.45 GB/s   | 69.1k  | 69.5k  | 138.6k |
-| 512k | 10.20 GB/s  | 10.74 GB/s  | 20.94 GB/s  | 20.9k  | 22.0k  | 42.9k  |
-| 1m   | 11.52 GB/s  | 12.28 GB/s  | 23.80 GB/s  | 11.8k  | 12.6k  | 24.4k  |
+| 4k   | 88.89 MB/s  | 89.12 MB/s  | 178.01 MB/s | 22.8k  | 22.8k  | 45.6k  |
+| 64k  | 1.10 GB/s   | 1.11 GB/s   | 2.21 GB/s   | 18.1k  | 18.2k  | 36.4k  |
+| 512k | 1.45 GB/s   | 1.53 GB/s   | 2.98 GB/s   | 3.0k   | 3.1k   | 6.1k   |
+| 1m   | 1.68 GB/s   | 1.79 GB/s   | 3.48 GB/s   | 1.7k   | 1.8k   | 3.6k   |
 +---------------------------------------------------------------------------+
 
 Ookla Network Speedtest (Region: Mixed)
 +---------------------------------------------------------------------------------------+
 | Provider    | Location          | Download     | Upload       | Data Used | Latency   |
 +=======================================================================================+
-| Biznet      | Jakarta, ID       |  904.4 Mb/s  |  934.7 Mb/s  |    2.0 GB |   11.6 ms |
-| Claro       | Montevidio, UY    |  128.6 Mb/s  |  325.7 Mb/s  |    0.7 GB |  369.0 ms |
-| CoreIX      | London, GB        |  917.2 Mb/s  |  377.3 Mb/s  |    1.8 GB |  226.1 ms |
-| Lightwire   | Hamilton, NZ      |  730.5 Mb/s  |  522.8 Mb/s  |    2.0 GB |  158.2 ms |
-| Airstream   | Wisconsin, US     |  397.3 Mb/s  |  397.5 Mb/s  |    1.0 GB |  198.4 ms |
+| Biznet      | Jakarta, ID       |    5.8 Gb/s  |    5.1 Gb/s  |   13.5 GB |   14.5 ms |
+| Claro       | Montevidio, UY    |    1.0 Gb/s  |  269.6 Mb/s  |    1.5 GB |  374.6 ms |
+| CoreIX      | London, GB        |  941.4 Mb/s  |  540.7 Mb/s  |    2.4 GB |  162.6 ms |
+| Lightwire   | Hamilton, NZ      |    1.5 Gb/s  |  386.6 Mb/s  |    2.9 GB |  155.5 ms |
+| Airstream   | Wisconsin, US     |    3.0 Gb/s  |  177.6 Mb/s  |    4.3 GB |  238.0 ms |
 +---------------------------------------------------------------------------------------+
 
 +-----------------------------------------------+
-| Geekbench 5.4.4 Tryout for Linux x86 (64-bit) |
+| Geekbench 5.4.5 Tryout for Linux x86 (64-bit) |
 +===============================================+
-| Single Core        | 862                      |
-| Multi Core         | 5954                     |
+| Single Core        | 657                      |
+| Multi Core         | 1281                     |
 +-----------------------------------------------+
-| https://browser.geekbench.com/v5/cpu/16743117 |
+| https://browser.geekbench.com/v5/cpu/17169101 |
 +-----------------------------------------------+
-| Benchy time spent  | 5 Minutes 26 Seconds     |
+| Benchy time spent  | 5 Minutes 57 Seconds     |
 +-----------------------------------------------+
-| Benchy result      | http://sprunge.us/969OCn |
+| Benchy result      | http://sprunge.us/onOHJj |
 +-----------------------------------------------+
 ```
 
