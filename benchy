@@ -70,9 +70,9 @@ if [ "$#" != 0 ]; then
       -e|--grab-env)
       printf "%s" "Pulling env file to current directory"
       if [ "$filegrab" -eq 0 ]; then
-        curl -o "${PWD}/.benchy_opt" -kLs --connect-timeout 5 --retry 5 --retry-delay 0 "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt"
+        curl -o "${HOME}/.benchy_opt" -kLs --connect-timeout 5 --retry 5 --retry-delay 0 "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt"
       elif [ "$filegrab" -eq 1 ]; then
-        wget -qO "${PWD}/.benchy_opt" "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt"
+        wget -qO "${HOME}/.benchy_opt" "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt"
       fi
       printf "%s\n" " [DONE]"; exit 0
       ;;
@@ -122,8 +122,8 @@ if [ "$#" != 0 ]; then
 fi
 # END OPTION PARSING
 # Check for user default option
-if [ -f ${PWD}/.benchy_opt ]; then
-  . ${PWD}/.benchy_opt
+if [ -f ${HOME}/.benchy_opt ]; then
+  . ${HOME}/.benchy_opt
   [ -n "$directory" ] && outputdir=$directory
 fi
 [ -n "$arg_json" ] && logext="json" || logext="log"
