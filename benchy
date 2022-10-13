@@ -42,6 +42,12 @@ Options:
 EOT
 }
 is_installed() { command -v $1 >/dev/null 2>&1; }
+is_openbsd() {
+    if [ $(uname) = "OpenBSD" ]; then
+	return 0;
+    fi
+    return 1;
+}
 # Prioritize curl over wget
 if is_installed curl; then
   # 0 Implies curl
@@ -352,6 +358,14 @@ binarycheck() {
     [ ! -e $ipformation ] && file_grabber "ip-api.com/json" $ipformation
     # Continent.csv
     [ -n "$arg_use_region" ] && { [ ! -e $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list; }
+
+    # Skipping download binary if os was openbsd
+    if is_openbsd; then
+				printf "%s" "Skipping downloading binary"
+				overline
+				return;
+    fi
+    
     # Download fio if not exist
     if [ "$fio" != "fio" ] && [ ! -f "$fio_path/fio" ]; then
       mkdir -p $fio_path
@@ -400,7 +414,7 @@ user_arch() {
   # Most commonly would be 64 bit
   arch=$(uname -m)
   case "$arch" in
-    *x86_64*)
+    *x86_64*|*amd64*)
     arch="x86_64"
     jq_arch="64"
     fio_size="2G"
@@ -438,13 +452,33 @@ user_arch() {
 sysinfo() {
   # System Information
   # OS
-  . "/etc/os-release"
-  currentOS="${PRETTY_NAME}"
-  kernelver=$(uname -r)
+    if [ -f "/etc/os-release" ]; then
+	. "/etc/os-release"
+	currentOS="${PRETTY_NAME}"
+	kernelver=$(uname -r)
+       else
+	   currentOS=$(uname)
+	   kernelver=$(uname -r)
+    fi
   checkmark=$(printf '\342\234\224')
   crossmark=$(printf '\342\235\214')
   # Uptime
-  uptime_now=$(awk '{print int($1/86400)" days, "int($1%86400/3600)" hrs, "int(($1%3600)/60)" mins, "int($1%60)" secs"}' /proc/uptime)
+  if is_openbsd; then
+      s=$(sysctl -n kern.boottime)
+      s=${s#*=}
+      s=${s%,*}
+      s=$(($(date +%s) - s))
+      d=$((s / 60 / 60 / 24))
+      h=$((s / 60 / 60 % 24))
+      m=$((s / 60 % 60))
+
+      # Only append days, hours and minutes if they're non-zero.
+      case "$d" in ([!0]*) uptime_now="${uptime_now}${d} days "; esac
+      case "$h" in ([!0]*) uptime_now="${uptime_now}${h} hrs "; esac
+      case "$m" in ([!0]*) uptime_now="${uptime_now}${m} mins"; esac
+  else
+      uptime_now=$(awk '{print int($1/86400)" days, "int($1%86400/3600)" hrs, "int(($1%3600)/60)" mins, "int($1%60)" secs"}' /proc/uptime)
+  fi
   # Location
   country=$(grep -o '"'"country"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
   country_code=$(grep -o '"'"countryCode"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
@@ -468,12 +502,16 @@ sysinfo() {
   if is_installed lscpu && { lscpu 2>&1 | grep -q -- 'Model name' ; }; then
     cpu_model=$(lscpu | awk -F: '/Model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' | sed 's/\(.\{41\}\).*/\1/')
   else
-    cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' /proc/cpuinfo | sed 's/\(.\{41\}\).*/\1/')
+      if is_openbsd; then
+					cpu_model=$(sysctl -n hw.model)
+      else
+					cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' /proc/cpuinfo | sed 's/\(.\{41\}\).*/\1/')
+      fi
   fi
   cpu_core=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
-  cpu_freq=$(awk 'NR==1{ print "@ "($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("@ %s MHz\n", $2); exit}}' /proc/cpuinfo)
-  grep -q -m 1 aes /proc/cpuinfo && { cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; } || { cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; }
-  grep -q -m 1 'vmx\|svm' /proc/cpuinfo && { cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; } || { cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; }
+  cpu_freq=$(awk 'NR==1{ print "@ "($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || printf "@ %s Mhz\n" $(sysctl -n hw.cpuspeed 2>/dev/null)) || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("@ %s MHz\n", $2); exit}}' /proc/cpuinfo 
+  dmesg | egrep -qe 'AES' && { cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; } || grep -q -m 1 aes /proc/cpuinfo && { cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; } || { cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; }
+  dmesg | egrep -qe '(VMX|SVM)' && { cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; } || grep -q -m 1 'vmx\|svm' /proc/cpuinfo && { cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; } || { cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; }
   virt_type="$(print_virtualization)"
   virt_type="${virt_type:-none}"
 
@@ -482,10 +520,21 @@ sysinfo() {
   disk_info=$(echo "$df_output" | awk 'NR==2{ print $2 }' | convertsize)
   disk_usage=$(echo "$df_output"| awk 'NR==2{ print $3 }'| convertsize)
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
-  mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
-  mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB\n", $3/1024^3 }')
-  mem_percentage=$(free -b | awk 'NR==2{printf "%.0f%s\n", $3*100/$2, "%" }')
-  swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
+  if is_openbsd; then
+      mem_info=$(grep -i "real mem" /var/run/dmesg.boot | cut -f2 -d"(" | cut -f1 -d")" | cut -f1 -d"MB")
+      mem_free=$(grep -i "avail mem" /var/run/dmesg.boot | cut -f2 -d"(" | cut -f1 -d")" | cut -f1 -d"MB")
+      mem_usage=$(echo "($mem_info-$mem_free)" | bc)
+      mem_percentage=$(echo "$mem_usage*100/$mem_free" | bc)
+      swap_info=$(pstat -s | awk '/dev/ {print $2}' | convertsize)
+      mem_info=$(printf "$mem_info%s" "MB") # TODO: Make result gbit format
+      mem_usage=$(printf "$mem_usage%s" "MB")
+      mem_percentage=$(printf "$mem_percentage%s" "%")
+  else
+      mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
+      mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB\n", $3/1024^3 }')
+      mem_percentage=$(free -b | awk 'NR==2{printf "%.0f%s\n", $3*100/$2, "%" }')
+      swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)  
+  fi
 
   printf "%-48s%s\n" "Server Insight" "Hardware Information"
   printf "%-48s%s\n" "---------------------" "---------------------"
@@ -534,6 +583,7 @@ SYSJSON
   fi
 }
 disk_test() {
+	[ is_openbsd ] && return 1
   [ "$arg_skip_disk" = "true" ] && return 1
   lsblkfifo="${benchy_path}/lsblk.fifo"; fiofile="${benchy_path}/fio.log"; fiores="${benchy_path}/fio_res.log"
   [ -p "$lsblkfifo" ] || mkfifo -m 600 "$lsblkfifo"
@@ -787,6 +837,12 @@ EOF
   fi
 }
 
+shuf() {
+    return $(awk -v min=$(echo $1 | cut -f1 -d'-') \
+		 -v max=$(echo $1 | cut -f2 -d'-') \
+		 'BEGIN{srand(); print int(min+rand()*(max-min+1))}')
+}
+
 runiperf() {
   # Define argument
   run_url="$1"
@@ -798,7 +854,8 @@ runiperf() {
   sn=1
   while [ $sn -le 5 ]; do
     printf "%s" "Performing iperf3 send test to $run_host (Attempt #$sn of 5)"
-    vport=$(shuf -i $run_port -n 1)
+      shuf $run_port
+      vport=$?
     iperf_sendlog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 --format k 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
     if [ "$?" -eq 0 ]; then sleep 1 && overline && break; else sleep 3 && overline; fi
     sn=$(( sn + 1 ))
@@ -806,8 +863,9 @@ runiperf() {
   # Receive test 5 times
   rn=1
   while [ $rn -le 5 ]; do
-    printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$rn of 5)"
-    vport=$(shuf -i $run_port -n 1)
+      printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$rn of 5)"
+      shuf $run_port
+      vport=$?
     iperf_reclog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 --format k -R 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
     if [ "$?" -eq 0 ]; then sleep 1 && overline && break; else sleep 3 && overline; fi
     rn=$(( rn + 1 ))
@@ -958,6 +1016,7 @@ SPTJSON
 }
 geekbench_test() {
   # Skip geekbench on input argument
+	if is_openbsd; then printf "%s\n" "Geekbench doesnt support *BSD, exiting test.." && return 1; fi
   [ "$arg_skip_gb" = "true" ] && return 1
   # Exit if ipv6 only
   [ "$ipv4_status" = "false" ] && printf "%s\n" "Geekbench doesn't work over ipv6, exiting test.." && return 1
