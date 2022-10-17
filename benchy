@@ -521,14 +521,16 @@ sysinfo() {
   disk_usage=$(echo "$df_output"| awk 'NR==2{ print $3 }'| convertsize)
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
   if is_openbsd; then
-      mem_info=$(grep -i "real mem" /var/run/dmesg.boot | cut -f2 -d"(" | cut -f1 -d")" | cut -f1 -d"MB")
-      mem_free=$(grep -i "avail mem" /var/run/dmesg.boot | cut -f2 -d"(" | cut -f1 -d")" | cut -f1 -d"MB")
-      mem_usage=$(echo "($mem_info-$mem_free)" | bc)
-      mem_percentage=$(echo "$mem_usage*100/$mem_free" | bc)
+      mem_info=$(($(sysctl -n hw.physmem)))
+      mem_usage=$(vmstat | tail -n1 | awk '{print $3}')
+      mem_usage=$(echo "$mem_usage * 1024" | bc)
+      mem_free=$(echo "$mem_info-$mem_usage" | bc)
+      mem_percentage=$(echo "$mem_usage*1024*100/$mem_free" | bc)
       swap_info=$(pstat -s | awk '/dev/ {print $2}' | convertsize)
-      mem_info=$(printf "$mem_info%s" "MB") # TODO: Make result gbit format
-      mem_usage=$(printf "$mem_usage%s" "MB")
-      mem_percentage=$(printf "$mem_percentage%s" "%")
+      
+      mem_info=$(echo "$mem_info" | convertsize)
+      mem_usage=$(echo "$mem_usage" | bc | convertsize)
+      mem_percentage=$(echo "$mem_percentage" "%")
   else
       mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
       mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB\n", $3/1024^3 }')
