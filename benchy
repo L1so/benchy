@@ -264,6 +264,7 @@ print_virtualization() {
     echo "openvz" && return 0
   fi
   # wsl test
+  if ! [ -d "/proc/version" ]; then return 0; fi
   if grep -q Microsoft /proc/version; then
     echo "wsl" && return 0
   fi
@@ -522,7 +523,7 @@ sysinfo() {
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
   if is_openbsd; then
       mem_info=$(($(sysctl -n hw.physmem)))
-      mem_usage=$(vmstat | tail -n1 | awk '{print $3}')
+      mem_usage=$(vmstat | tail -n1 | awk '{print ($3+0)}')
       mem_usage=$(echo "$mem_usage * 1024" | bc)
       mem_free=$(echo "$mem_info-$mem_usage" | bc)
       mem_percentage=$(echo "$mem_usage*1024*100/$mem_free" | bc)
