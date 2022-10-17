@@ -902,7 +902,11 @@ parse_iperf() {
         runiperf $url $port $provider $iperf_flags
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
-        latency=$(timeout 10 ping -4 -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
+	if is_openbsd; then
+	    latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
+	else
+	    latency=$(timeout 10 ping -4 -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
+	fi
         overline
         # End latency test
         awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
