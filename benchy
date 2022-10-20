@@ -518,7 +518,7 @@ sysinfo() {
   disk_usage=$(echo "$df_output"| awk 'NR==2{ print $3 }'| convertsize)
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
   if is_openbsd; then
-      mem_info=$(($(sysctl -n hw.physmem)))
+      mem_info=$(sysctl -n hw.physmem)
       mem_usage=$(vmstat | tail -n1 | awk '{print ($3+0)}')
       mem_usage=$(echo "$mem_usage * 1024" | bc)
       mem_free=$(echo "$mem_info-$mem_usage" | bc)
@@ -901,11 +901,7 @@ parse_iperf() {
         runiperf $url $port $provider $iperf_flags
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
-	if is_openbsd; then
-	    latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
-	else
-	    latency=$(timeout 10 ping -4 -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
-	fi
+	latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
         awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
