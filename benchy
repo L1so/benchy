@@ -43,10 +43,7 @@ EOT
 }
 is_installed() { command -v $1 >/dev/null 2>&1; }
 is_openbsd() {
-    if [ $(uname) = "OpenBSD" ]; then
-	return 0;
-    fi
-    return 1;
+    [ "$(uname)" = "OpenBSD" ] && return 0 || return 1
 }
 # Prioritize curl over wget
 if is_installed curl; then
@@ -264,8 +261,7 @@ print_virtualization() {
     echo "openvz" && return 0
   fi
   # wsl test
-  if ! [ -d "/proc/version" ]; then return 0; fi
-  if grep -q Microsoft /proc/version; then
+  if grep -sq Microsoft /proc/version; then
     echo "wsl" && return 0
   fi
 }
