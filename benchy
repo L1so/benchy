@@ -3,7 +3,7 @@
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v2.2"; rev_date="26 Oct 2022"
+currentVersion="v2.3"; rev_date="3 Nov 2022"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -25,6 +25,7 @@ Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
   -e, --grab-env          Pull benchy environmental file
+  -u, --use-env           Use environmental file in place of regular option
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
   -4, --geekbench4        Utilize ONLY geekbench 4 instead of 5
   -q, --geekbench         Utilize both geekbench 4 and 5
@@ -73,6 +74,7 @@ if [ "$#" != 0 ]; then
       -q|--geekbench) arg_use_gb45="true";;
       -j|--json) arg_json="true";;
       -m|--region) arg_use_region="true";;
+      -u|--use-env) arg_use_env="true";;
       -e|--grab-env)
       printf "%s" "Pulling env file to home directory"
       if [ "$filegrab" -eq 0 ]; then
@@ -128,7 +130,7 @@ if [ "$#" != 0 ]; then
 fi
 # END OPTION PARSING
 # Check for user default option
-if [ -f ${HOME}/.benchy_opt ]; then
+if [ -f ${HOME}/.benchy_opt ] && [ -n "$arg_use_env" ]; then
   . ${HOME}/.benchy_opt
   [ -n "$directory" ] && outputdir=$directory
 fi
@@ -310,7 +312,7 @@ closing_json() {
 }
 
 binarycheck() {
-  [ -f $HOME/.benchy_opt ] && printf "%s\n" "Found predefined option !"
+  [ -n "$this_instance_use_env" ] && printf "%s\n" "Found predefined option !"
   # Building directory
   benchy_path=$HOME/.benchy_file
   fio_path=$benchy_path/fio
@@ -677,7 +679,7 @@ while IFS='|' read -r devname devsize devmp devtype; do
   done
   # Build fio output
   {
-    printf "Disk Performance Check ($devtype on $devname)\n"
+    printf "Disk Performance Check ($devtype on $devname) (R: Read, W: Write, T: Total)\n"
     printf "+%75s+\n" | tr ' ' '-'
     printf "| %-3s | %-11s | %-11s | %-11s | %18s %7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
     printf "+%75s+\n" | tr ' ' '='

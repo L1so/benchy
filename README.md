@@ -1,4 +1,4 @@
-# Benchy - Server Benchmarking Script
+# Benchy - Server Benchmarking Script Built in Dash
 
 Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to optimize the process. [Benchy is known to work across several shells](https://github.com/L1so/benchy#portability).
 
@@ -36,7 +36,7 @@ Via curl.
 		v2.2
 
 ### Environment Variable
-If you find yourself perform benchmark alot, you may find this feature useful. By default benchy will find if `.benchy_opt` exist on current directory, and will read variable defined there.
+If you find yourself perform benchmark alot, you may find this feature useful. By default benchy will find if `.benchy_opt` exist on home directory, and will pick variable defined there.
 1. Download the template.
 	```
 	wget -qO- benchy.pw | sh -s -- -e
@@ -53,6 +53,7 @@ Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
   -e, --grab-env          Pull benchy environmental file
+  -u, --use-env           Use environmental file in place of regular option
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
   -4, --geekbench4        Utilize ONLY geekbench 4 instead of 5
   -q, --geekbench         Utilize both geekbench 4 and 5
@@ -113,61 +114,61 @@ Benchy **may** also works on other distribution than previously stated. Be sure 
 
 This is sample output of benchy in action:
 ```
-$ wget -qO- benchy.pw | bash -s -- -oks
+$ wget -qO- benchy.pw | bash -s -- -oks --region=as
 # # # # # # # # # # # # # # # # # # # # #
 #             Benchy v2.2               #
 #    https://github.com/L1so/benchy     #
 # # # # # # # # # # # # # # # # # # # # #
-#        10 Sep 2022 14:16 WIB          #
+#        03 Nov 2022 19:55 WIB          #
 # # # # # # # # # # # # # # # # # # # # #
 
 Server Insight                                  Hardware Information
 ---------------------                           ---------------------
-OS         : Ubuntu 18.04 LTS                   Model       : Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz
-Location   : Singapore                          Core        : 2 @ 2199.944 MHz
-Kernel     : 4.15.0-192-generic                 AES-NI      : ✔ Enabled
-Uptime     : 0 days, 0 hrs, 0 mins, 59 secs     VM-x/AMD-V  : ✔ Enabled
-Virt       : kvm                                Swap        : 2.0 GiB   
+OS         : Ubuntu 20.04.5 LTS                 Model       : AMD Ryzen 9 5950X 16-Core Processor
+Location   : Singapore                          Core        : 8 @ 3393.622 MHz
+Kernel     : 5.4.0-131-generic                  AES-NI      : ✔ Enabled
+Uptime     : 0 days, 5 hrs, 57 mins, 19 secs    VM-x/AMD-V  : ✔ Enabled
+Virt       : kvm                                Swap        : 0.0 KiB   
 
 Disk & Memory Usage                             Network Data
 ---------------------                           ---------------------
-Disk       : 32.4 GiB                           ASN         : AS59253   
-Disk Usage : 5.9 GiB (20% Used)                 ISP         : Leaseweb Asia Pacific pte. ltd.
-Mem        : 3.9 GiB                            IPv4        : ✔ Enabled
-Mem Usage  : 0.2 GiB (5% Used)                  IPv6        : ❌ Disabled
+Disk       : 116.1 GiB                          ASN         : AS142594  
+Disk Usage : 8.9 GiB (8% Used)                  ISP         : SpeedyPage Ltd
+Mem        : 7.7 GiB                            IPv4        : ✔ Enabled
+Mem Usage  : 0.9 GiB (12% Used)                 IPv6        : ✔ Enabled
 
-Disk Performance Check (ext4 on /dev/vda2)
+Disk Performance Check (ext4 on /dev/vda1)
 +---------------------------------------------------------------------------+
 | Size | Read        | Write       | Total       |       IOPS (R,W,T)       |
 +===========================================================================+
-| 4k   | 88.89 MB/s  | 89.12 MB/s  | 178.01 MB/s | 22.8k  | 22.8k  | 45.6k  |
-| 64k  | 1.10 GB/s   | 1.11 GB/s   | 2.21 GB/s   | 18.1k  | 18.2k  | 36.4k  |
-| 512k | 1.45 GB/s   | 1.53 GB/s   | 2.98 GB/s   | 3.0k   | 3.1k   | 6.1k   |
-| 1m   | 1.68 GB/s   | 1.79 GB/s   | 3.48 GB/s   | 1.7k   | 1.8k   | 3.6k   |
+| 4k   | 428.78 MB/s | 429.91 MB/s | 858.69 MB/s | 109.8k | 110.0k | 219.8k |
+| 64k  | 2.20 GB/s   | 2.21 GB/s   | 4.42 GB/s   | 36.1k  | 36.3k  | 72.5k  |
+| 512k | 2.02 GB/s   | 2.13 GB/s   | 4.15 GB/s   | 4.1k   | 4.4k   | 8.5k   |
+| 1m   | 2.17 GB/s   | 2.31 GB/s   | 4.48 GB/s   | 2.2k   | 2.4k   | 4.6k   |
 +---------------------------------------------------------------------------+
 
-Ookla Network Speedtest (Region: Mixed)
+Ookla Network Speedtest (Region: Asia)
 +---------------------------------------------------------------------------------------+
 | Provider    | Location          | Download     | Upload       | Data Used | Latency   |
 +=======================================================================================+
-| Biznet      | Jakarta, ID       |    5.8 Gb/s  |    5.1 Gb/s  |   13.5 GB |   14.5 ms |
-| Claro       | Montevidio, UY    |    1.0 Gb/s  |  269.6 Mb/s  |    1.5 GB |  374.6 ms |
-| CoreIX      | London, GB        |  941.4 Mb/s  |  540.7 Mb/s  |    2.4 GB |  162.6 ms |
-| Lightwire   | Hamilton, NZ      |    1.5 Gb/s  |  386.6 Mb/s  |    2.9 GB |  155.5 ms |
-| Airstream   | Wisconsin, US     |    3.0 Gb/s  |  177.6 Mb/s  |    4.3 GB |  238.0 ms |
+| Biznet      | Jakarta, ID       |  860.9 Mb/s  |  922.9 Mb/s  |    2.5 GB |   12.0 ms |
+| Exabytes    | Kuala Lumpur, MY  |  572.2 Mb/s  |  934.2 Mb/s  |    1.8 GB |    8.4 ms |
+| SingTel     | Singapore, SG     |  861.1 Mb/s  |  920.2 Mb/s  |    2.1 GB |    1.8 ms |
+| GLBB        | Tokyo, JP         |   16.2 Mb/s  |   37.1 Mb/s  |    0.1 GB |   80.5 ms |
+| Airtel      | Chennai, IN       |  765.1 Mb/s  |  926.3 Mb/s  |    2.4 GB |   32.8 ms |
 +---------------------------------------------------------------------------------------+
 
 +-----------------------------------------------+
 | Geekbench 5.4.5 Tryout for Linux x86 (64-bit) |
 +===============================================+
-| Single Core        | 657                      |
-| Multi Core         | 1281                     |
+| Single Core        | 1306                     |
+| Multi Core         | 7176                     |
 +-----------------------------------------------+
-| https://browser.geekbench.com/v5/cpu/17169101 |
+| https://browser.geekbench.com/v5/cpu/18406347 |
 +-----------------------------------------------+
-| Benchy time spent  | 5 Minutes 57 Seconds     |
+| Benchy time spent  | 4 Minutes 14 Seconds     |
 +-----------------------------------------------+
-| Benchy result      | http://sprunge.us/onOHJj |
+| Benchy result      | http://sprunge.us/SyeE9m |
 +-----------------------------------------------+
 ```
 

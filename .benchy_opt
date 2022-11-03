@@ -1,7 +1,6 @@
 # Environmental file for benchy
 # Usage: Uncomment a function that you want to enable
 # Benchy will automatically detect any declared variable here
-
 # -------------------------------------------------- #
 
 # Keep benchy related files after successful run (default: Remove)
@@ -39,3 +38,8 @@
 
 # Specify location for output
 # directory="/path/to/file" # Equal to -o /path/to/file or --output /path/to/file
+
+# -------------------------------------------------- #
+# DO NOT UNCOMMENT VARIABLE BELOW
+this_instance_use_env="true"
+# DO NOT UNCOMMENT VARIABLE ABOVE
