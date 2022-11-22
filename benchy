@@ -3,7 +3,7 @@
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v2.3"; rev_date="3 Nov 2022"
+currentVersion="v2.4"; rev_date="22 Nov 2022"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -544,7 +544,7 @@ sysinfo() {
   printf "%-10s : %-35s%-11s : %-10s\n" "OS" "$currentOS" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
   "Kernel" "$kernelver" "AES-NI" "$cpu_aes" "Uptime" "$uptime_now" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type" "Swap" "$swap_info"
   echo
-  printf "%-48s%s\n" "Disk & Memory Usage" "Network Data"
+  printf "%-48s%s\n" "Disk & Memory Usage" "Network Information"
   printf "%-48s%s\n" "---------------------" "---------------------"
   printf "%-10s : %-35s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$(printf "%s" "$isp" | sed 's/\(.\{41\}\).*/\1../')" \
   "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage ($mem_percentage Used)" "IPv6" "$ipv6_string"
@@ -713,18 +713,18 @@ netlist() {
   [ -z "$continent" ] && continent=$(cat $continent_file)
   if [ -z "$arg_prefer_speedtest" ]; then
     mixedipv4=$(cat << 'EOF'
-Clouvider|Dallas, US|5200-5209|dal.speedtest.clouvider.net
-Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz
-Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
-Clouvider|Frankfurt, DE|5200-5209|fra.speedtest.clouvider.net
+Airstream|Wisconsin, US|5201-5205|iperf.airstreamcomm.net|iperf.airstreamcomm.net
+Uztelecom|Tashkent, UZ|5200-5207|speedtest.uztelecom.uz|speedtest.uztelecom.uz
+Novogara|Amsterdam, NL|5200-5209|speedtest.ams1.novogara.net|speedtest.ams1.novogara.net
+FiberBy|Copenhagen, DK|9201-9240|speed.fiberby.dk|speed.fiberby.dk
 EOF
     )
     mixedipv6=$mixedipv4
     case "$continent" in
       "Asia")
       ipv4_provider=$(cat << 'EOF'
-Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz
-Biznet|Jakarta, ID|5201-5203|iperf.biznetnetworks.com
+Uztelecom|Tashkent, UZ|5200-5209|speedtest.uztelecom.uz|speedtest.uztelecom.uz
+Biznet|Jakarta, ID|5201-5203|iperf.biznetnetworks.com|iperf.biznetnetworks.com
 EOF
       )
       ipv6_provider=$ipv4_provider
@@ -735,28 +735,28 @@ EOF
       ;;
       "North America")
       ipv4_provider=$(cat << 'EOF'
-Airstream|Wisconsin, US|5201-5205|iperf.airstreamcomm.net
-Clouvider|Dallas, US|5200-5209|dal.speedtest.clouvider.net
-Clouvider|Phoenix, US|5200-5209|phx.speedtest.clouvider.net
-Clouvider|Los Angeles, US|5200-5209|la.speedtest.clouvider.net
+Airstream|Wisconsin, US|5201-5205|iperf.airstreamcomm.net|iperf.airstreamcomm.net
+Clouvider|Dallas, US|5200-5209|dal.speedtest.clouvider.net|dal.speedtest.clouvider.net
+Clouvider|Phoenix, US|5200-5209|phx.speedtest.clouvider.net|phx.speedtest.clouvider.net
+Clouvider|Los Angeles, US|5200-5209|la.speedtest.clouvider.net|la.speedtest.clouvider.net
 EOF
       )
       ipv6_provider=$ipv4_provider
       ;;
       "South America")
       ipv4_provider=$(cat << 'EOF'
-Iveloz|Sao Paulo, BR|5201-5209|speedtest.iveloz.net.br
+Iveloz|Sao Paulo, BR|5201-5209|speedtest.iveloz.net.br|speedtest.iveloz.net.br
 EOF
       )
       ipv6_provider=$ipv4_provider
       ;;
       "Europe")
       ipv4_provider=$(cat << 'EOF'
-Online.net|Paris, FR|5200-5209|ping.online.net
-Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net
-Hybula|Amsterdam, NL|5201-5201|speedtest-nl-oum.hybula.net
-Wilhelm.tel|Hamburg, DE|5200-5209|speedtest.wtnet.de
-OVH|Roubaix, FR|5201-5210|rbx.proof.ovh.net
+Online.net|Paris, FR|5200-5209|ping.online.net|ping.online.net
+Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net|lon.speedtest.clouvider.net
+Novogara|Amsterdam, NL|5200-5209|speedtest.ams1.novogara.net|speedtest.ams1.novogara.net
+Wilhelm.tel|Hamburg, DE|5200-5209|speedtest.wtnet.de|speedtest.wtnet.de
+Alwyzon|Vienna, AT|5201-5202|lg.vie.alwyzon.net|lg.vie.alwyzon.net
 EOF
       )
       ipv6_provider=$ipv4_provider
@@ -858,7 +858,7 @@ runiperf() {
   while [ $sn -le 5 ]; do
     printf "%s" "Performing iperf3 send test to $run_host (Attempt #$sn of 5)"
     vport=$(cshuf $run_port)
-    iperf_sendlog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 --format k 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
+    iperf_sendlog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 8 --format k 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
     if [ "$?" -eq 0 ]; then sleep 1 && overline && break; else sleep 3 && overline; fi
     sn=$(( sn + 1 ))
   done
@@ -867,7 +867,7 @@ runiperf() {
   while [ $rn -le 5 ]; do
     printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$rn of 5)"
     vport=$(cshuf $run_port)
-    iperf_reclog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 6 --format k -R 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
+    iperf_reclog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 8 --format k -R 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
     if [ "$?" -eq 0 ]; then sleep 1 && overline && break; else sleep 3 && overline; fi
     rn=$(( rn + 1 ))
   done
@@ -899,11 +899,11 @@ parse_iperf() {
     prot="IPv4"
     echo "$ipv4_provider" |
     {
-      while IFS='|' read -r provider loc port url; do
+      while IFS='|' read -r provider loc port url pingable; do
         runiperf $url $port $provider $iperf_flags
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
-	latency=$(timeout 10 ping -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
+	      latency=$(timeout 10 ping -qc5 $pingable 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
         awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
@@ -937,11 +937,11 @@ PVFJ
     prot="IPv6"
     echo "$ipv6_provider" |
     {
-      while IFS='|' read -r provider loc port url; do
+      while IFS='|' read -r provider loc port url pingable; do
         runiperf $url $port $provider $iperf_flags
         # Latency test
         printf "%s" "Performing latency test to $provider (avg of 5)"
-        latency=$(timeout 10 ping6 -qc5 $url 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
+        latency=$(timeout 10 ping6 -qc5 $pingable 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
         awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
