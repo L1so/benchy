@@ -32,9 +32,9 @@ Via curl.
 2. Source the file then (e.g. `. ~/.bashrc` or `. ~/.bash_aliases`).
 3. You can now painlessly perform benchmark without typing long command. Be sure to check available option on [Supported Flag](https://github.com/L1so/benchy#supported-flag)
 ```bash	
-	$ benchy -v
-	Version  : v2.4
-	Revision : 22 Nov 2022
+$ benchy -v
+Version  : v2.4
+Revision : 22 Nov 2022
 ```
 ### Environment Variable
 If you find yourself perform benchmark alot, you may find this feature useful. By default benchy will find if `.benchy_opt` exist on home directory, and will pick variable defined there.
