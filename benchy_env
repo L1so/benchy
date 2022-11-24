@@ -9,6 +9,9 @@
 # Store result as json formatted output
 # arg_json="true" # Equal to -j
 
+# Enable output coloring (require perl)
+# arg_colorize="true" # Equal to -c
+
 # Enable region based network test, otherwise will use mixed source
 # arg_use_region="true" # Equal to -m
 

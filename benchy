@@ -1,20 +1,52 @@
 #!/bin/sh
-# Benchy V2.2
+# Benchy V2.4
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v2.4"; rev_date="22 Nov 2022"
+colordefiner() {
+  if [ -z "$arg_colorize" ]; then
+    unset cred cgreen cyellw cblue cyan csky clyl
+    unset cbwhite cbgreen cbyan cbsky cblgreen cbyellw cblsky
+    unset creset
+    return 1
+  elif ! is_installed perl; then
+    die "Perl not installed, please install it and try again" "Or you can proceed without --color"
+    exit 1
+  elif [ "$(tput colors)" -ne "256" ]; then
+    die "Your terminal does not support 256 color pallete" "Retry without --color option"
+    exit 1
+  else
+    # Non bold
+    cred=$(tput sgr0; tput setaf 1); clyl=$(tput sgr0; tput setaf 11)
+    cgreen=$(tput sgr0; tput setaf 2); cyan=$(tput sgr0; tput setaf 6)
+    cyellw=$(tput sgr0; tput setaf 215); csky=$(tput sgr0; tput setaf 14)
+    # Bold
+    cbwhite=$(tput bold; tput setaf 7); cblgreen=$(tput bold; tput setaf 121)
+    cbgreen=$(tput bold; tput setaf 2); cbyan=$(tput bold; tput setaf 6)
+    cbyellw=$(tput bold; tput setaf 11); cbsky=$(tput bold; tput setaf 14)
+    cblsky=$(tput bold; tput setaf 159)
+    # Reset color
+    creset=$(tput sgr0)
+  fi
+}
+anstripper() { perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g' ; }
+anstripper_ng() {
+  if [ "$parseit" = "true" ] && [ -n "$arg_colorize" ]; then
+    $decolorize $outputdir/benchy.log > /tmp/temporary_benchy.log && mv /tmp/temporary_benchy.log $outputdir/benchy.log
+  fi
+}
+currentVersion="v2.4"; rev_date="24 Nov 2022"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
   currentDateiso=$(date +"%Y-%m-%dT%H:%M:%S%:z")
   {
-    printf "%s\n" '# # # # # # # # # # # # # # # # # # # # #'
-    printf "%s\n" "#             Benchy $currentVersion               #"
-    printf "%s\n" '#    https://github.com/L1so/benchy     #'
-    printf "%s\n" '# # # # # # # # # # # # # # # # # # # # #'
-    printf "%s\n" "#        $currentDate          #"
-    printf "%s\n" '# # # # # # # # # # # # # # # # # # # # #'
+    printf "${cbyan}%s\n" "# # # # # # # # # # # # # # # # # # # # #"
+    printf "%s\n" "#             ${cbwhite}Benchy ${cbgreen}$currentVersion${cbyan}               #"
+    printf "%s\n" "#    ${cbwhite}https://github.com/L1so/benchy${cbyan}     #"
+    printf "%s\n" "# # # # # # # # # # # # # # # # # # # # #"
+    printf "%s\n" "#        ${cbgreen}$currentDate${cbyan}          #"
+    printf "%s\n" "# # # # # # # # # # # # # # # # # # # # #${creset}"
     echo
   } | parse_output
 }
@@ -24,6 +56,7 @@ display_help() {
 Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
+  -c, --color             Enable coloring on output (requiring perl)
   -e, --grab-env          Pull benchy environmental file
   -u, --use-env           Use environmental file in place of regular option
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
@@ -44,6 +77,13 @@ EOT
 }
 is_installed() { command -v $1 >/dev/null 2>&1; }
 die() { printf "%s\n" "$@" >&2; return 1; }
+say() {
+  if [ -z "$arg_colorize" ]; then
+    printf "%s" "$@"
+  else
+    printf "${cyan}%s${creset}" "$@"
+  fi
+}
 case $(uname | tr '[:upper:]' '[:lower:]') in
   linux*) osv="linux";;
   *bsd*) osv="bsd";;
@@ -73,14 +113,15 @@ if [ "$#" != 0 ]; then
       -4|--geekbench4) arg_use_gb4="true";;
       -q|--geekbench) arg_use_gb45="true";;
       -j|--json) arg_json="true";;
+      -c|--color) arg_colorize="true";;
       -m|--region) arg_use_region="true";;
       -u|--use-env) arg_use_env="true";;
       -e|--grab-env)
       printf "%s" "Pulling env file to home directory"
       if [ "$filegrab" -eq 0 ]; then
-        curl -o "${HOME}/.benchy_opt" -kLs --connect-timeout 5 --retry 5 --retry-delay 0 "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt"
+        curl -o "${HOME}/.benchy_opt" -kLs --connect-timeout 5 --retry 5 --retry-delay 0 "https://raw.githubusercontent.com/L1so/benchy/main/benchy_env"
       elif [ "$filegrab" -eq 1 ]; then
-        wget -qO "${HOME}/.benchy_opt" "https://raw.githubusercontent.com/L1so/benchy/main/.benchy_opt"
+        wget -qO "${HOME}/.benchy_opt" "https://raw.githubusercontent.com/L1so/benchy/main/benchy_env"
       fi
       printf "%s\n" " [DONE]"; exit 0
       ;;
@@ -171,13 +212,14 @@ send_output() {
     )
     {
       if [ -n "$arg_use_gb45" ]; then
-        printf "| %-45s | %-45s |\n" "Benchy result "$resulturl
-        printf "+%47s+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}| ${cblsky}%-45s ${cbwhite}| ${cblgreen}%-45s ${cbwhite}|\n" "Benchy result "$resulturl
+        printf "${cbwhite}+%47s+%47s+${creset}\n" | tr ' ' '-'
       else
-        printf "| %-18s | %-24s |\n" "Benchy result" "$resulturl"
-        printf "+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Benchy result" "$resulturl"
+        printf "${cbwhite}+%47s+${creset}\n" | tr ' ' '-'
       fi
     } | parse_output
+    anstripper_ng
   fi
   rm -f /tmp/benchy.${logext} || true
 }
@@ -203,9 +245,10 @@ print_space() { { printf "%${1}s" | tr ' ' '\n' ; } | parse_output; }
 
 cleanup() {
   tput cnorm
+  tput sgr0
   rm -f $fiofile $lsblkfifo $fiores $mainjson
 }
-trap cleanup 0 2 3 15
+trap 'cleanup; trap - EXIT; exit' EXIT INT HUP SIGINT
 
 file_grabber() {
   ddl_input="$1"
@@ -312,7 +355,7 @@ closing_json() {
 }
 
 binarycheck() {
-  [ -n "$this_instance_use_env" ] && printf "%s\n" "Found predefined option !"
+  [ -n "$this_instance_use_env" ] && printf "${cyan}%s${creset}\n" "Found predefined option !"
   # Building directory
   benchy_path=$HOME/.benchy_file
   fio_path=$benchy_path/fio
@@ -326,6 +369,7 @@ binarycheck() {
   mainjson=$benchy_path/main.json
   continent_list=$benchy_path/continent.csv
   continent_file=$benchy_path/continent.txt
+  decolorize=$benchy_path/uncolor.perl
 
   # Fio binary
   is_installed fio && fio="fio" || fio="$fio_path/fio"
@@ -354,17 +398,19 @@ binarycheck() {
   {
     mkdir -p $benchy_path
     [ -z "$arg_use_gb45" ] && mkdir -p $geekbench_path || mkdir -p "${benchy_path}/gb4" "${benchy_path}/gb5"
-    printf "%s" "Fetching required asset, please wait a moment..."
+    say "Fetching required asset, please wait a moment..."
     gitlink="https://github.com/L1so/benchy/raw/${branch:-main}/binary"
     # IP Information
     [ ! -e $ipformation ] && file_grabber "ip-api.com/json" $ipformation
     # Continent.csv
     [ -n "$arg_use_region" ] && { [ ! -e $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list; }
+    # perl decolorizer
+    [ ! -e $decolorize ] && file_grabber "${gitlink}/uncolor.perl" $decolorize && chmod u+x "$decolorize"
 
     # Skipping download binary if os was openbsd
     if [ "$osv" = "bsd" ]; then
-				printf "%s" "Skipping downloading binary"
-				overline
+			say "Skipping downloading binary"
+			overline
     fi
 
     # Download fio if not exist
@@ -461,8 +507,8 @@ sysinfo() {
 	   currentOS=$(uname)
 	   kernelver=$(uname -r)
     fi
-  checkmark=$(printf '\342\234\224')
-  crossmark=$(printf '\342\235\214')
+  checkmark=$(printf "${cgreen}\342\234\224")
+  crossmark=$(printf "${cred}\342\235\214")
   # Uptime
   if [ "$osv" = "bsd" ]; then
       s=$(sysctl -n kern.boottime)
@@ -539,14 +585,14 @@ sysinfo() {
       swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
   fi
 
-  printf "%-48s%s\n" "Server Insight" "Hardware Information"
-  printf "%-48s%s\n" "---------------------" "---------------------"
-  printf "%-10s : %-35s%-11s : %-10s\n" "OS" "$currentOS" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
+  printf "${cbwhite}%-48s%s\n" "Server Insight" "Hardware Information"
+  printf "${cbyan}%-48s%s\n" "---------------------" "---------------------"
+  printf "${cbwhite}%-10s : ${csky}%-35s${cbwhite}%-11s : ${csky}%-10s\n" "OS" "$currentOS" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
   "Kernel" "$kernelver" "AES-NI" "$cpu_aes" "Uptime" "$uptime_now" "VM-x/AMD-V" "$cpu_virt" "Virt" "$virt_type" "Swap" "$swap_info"
   echo
-  printf "%-48s%s\n" "Disk & Memory Usage" "Network Information"
-  printf "%-48s%s\n" "---------------------" "---------------------"
-  printf "%-10s : %-35s%-11s : %-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$(printf "%s" "$isp" | sed 's/\(.\{41\}\).*/\1../')" \
+  printf "${cbwhite}%-48s%s\n" "Disk & Memory Usage" "Network Information"
+  printf "${cbyan}%-48s%s\n" "---------------------" "---------------------"
+  printf "${cbwhite}%-10s : ${csky}%-35s${cbwhite}%-11s : ${csky}%-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$(printf "%s" "$isp" | sed 's/\(.\{41\}\).*/\1../')" \
   "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage ($mem_percentage Used)" "IPv6" "$ipv6_string"
 
   # Parse to JSON
@@ -625,17 +671,17 @@ while IFS='|' read -r devname devsize devmp devtype; do
   [ -z "$devtype" ] && devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
   [ "$mountpoint" = "/" ] && mountpoint=$benchy_path
   if [ "$(echo "$disklimit > $devsize" | $bc)" -eq 1 ]; then
-    printf "%s\n" "Insufficient storage on $devname" | parse_output
+    printf "${cyan}%s${creset}\n" "Insufficient storage on $devname" | parse_output
     continue
   fi
   if [ ! -w "$mountpoint" ]; then
-    printf "%s\n" "No write permission to $mountpoint, skipping disk" | parse_output
+    printf "${cyan}%s${creset}\n" "No write permission to $mountpoint, skipping disk" | parse_output
     continue
   fi
   # Run fio on each block size
   for bs in 4k 64k 512k 1m; do
     # Iterate over each defined block_size from array
-    printf "%s" "Running fio R+W sampling on $bs block size..."
+    say "Running fio R+W sampling on $bs block size..."
     {
       timeout 40 \
       $fio --name=rand_rw_$bs \
@@ -679,13 +725,13 @@ while IFS='|' read -r devname devsize devmp devtype; do
   done
   # Build fio output
   {
-    printf "Disk Performance Check ($devtype on $devname) (R: Read, W: Write, T: Total)\n"
-    printf "+%75s+\n" | tr ' ' '-'
-    printf "| %-3s | %-11s | %-11s | %-11s | %18s %7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
-    printf "+%75s+\n" | tr ' ' '='
+    printf "${cbwhite}Disk Performance Check (${cbgreen}$devtype${cbwhite} on ${cbyellw}$devname${cbwhite}) ${cbsky}(R: Read, W: Write, T: Total)${creset}\n"
+    printf "${cbwhite}+%75s+\n" | tr ' ' '-'
+    printf "${cbwhite}|${cblgreen} %-3s | %-11s | %-11s | %-11s | %18s ${cbwhite}%7s\n" "Size" "Read" "Write" "Total" "IOPS (R,W,T)" "|"
+    printf "${cbwhite}+%75s+\n" | tr ' ' '='
     while IFS='|' read -r blocksize read write total read_iops write_iops total_iops; do
       # Loop over variable
-      printf "| %-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s |\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
+      printf "${cbwhite}| ${cyellw}%-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s ${cbwhite}|${creset}\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
       if [ -n "$arg_json" ]; then
         cat <<DISKJSON | $jq --argjson dj "$(cat)" '.disk_bench += $dj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
         {
@@ -701,7 +747,7 @@ while IFS='|' read -r devname devsize devmp devtype; do
 DISKJSON
       fi
     done < "$fiores"
-    printf "+%75s+\n" | tr ' ' '-'
+    printf "${cbwhite}+%75s+${creset}\n" | tr ' ' '-'
     truncate -s 0 $fiores
     rm -f -- $mountpoint/test.fio
   } | parse_output
@@ -856,7 +902,7 @@ runiperf() {
   # Send test 5 times
   sn=1
   while [ $sn -le 5 ]; do
-    printf "%s" "Performing iperf3 send test to $run_host (Attempt #$sn of 5)"
+    say "Performing iperf3 send test to $run_host (Attempt #$sn of 5)"
     vport=$(cshuf $run_port)
     iperf_sendlog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 8 --format k 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
     if [ "$?" -eq 0 ]; then sleep 1 && overline && break; else sleep 3 && overline; fi
@@ -865,7 +911,7 @@ runiperf() {
   # Receive test 5 times
   rn=1
   while [ $rn -le 5 ]; do
-    printf "%s" "Performing iperf3 receive test to $run_host (Attempt #$rn of 5)"
+    say "Performing iperf3 receive test to $run_host (Attempt #$rn of 5)"
     vport=$(cshuf $run_port)
     iperf_reclog=$(timeout 15 $iperf $run_flags -c $run_url -p $vport -P 8 --format k -R 2>/dev/null | awk '/SUM/ && /sender/{ print $6 }')
     if [ "$?" -eq 0 ]; then sleep 1 && overline && break; else sleep 3 && overline; fi
@@ -879,15 +925,15 @@ net_header() {
   netlist
   {
     if [ -z "$arg_prefer_speedtest" ]; then
-      printf "Network Performance Test (Region: $continent)\n"
-      printf "+%81s+\n" | tr ' ' '-'
-      printf "| %-5s | %-11s | %-15s | %-12s | %-12s | %-9s |\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
-      printf "+%81s+\n" | tr ' ' '='
+      printf "${cbwhite}Network Performance Test (Region: ${cbyellw}$continent)\n"
+      printf "${cbwhite}+%81s+\n" | tr ' ' '-'
+      printf "${cbwhite}| ${cblgreen}%-5s | %-11s | %-15s | %-12s | %-12s | %-9s ${cbwhite}|\n" "Prot." "Provider" "Location" "Send" "Receive" "Latency"
+      printf "${cbwhite}+%81s+${creset}\n" | tr ' ' '-'
     else
-      printf "Ookla Network Speedtest (Region: $continent)\n"
-      printf "+%87s+\n" | tr ' ' '-'
-      printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "Provider" "Location" "Download" "Upload" "Data Used" "Latency"
-      printf "+%87s+\n" | tr ' ' '='
+      printf "${cbwhite}Ookla Network Speedtest (Region: ${cbyellw}$continent)\n"
+      printf "${cbwhite}+%87s+\n" | tr ' ' '-'
+      printf "${cbwhite}| ${cblgreen}%-11s | %-17s | %-12s | %-12s | %-9s | %-9s ${cbwhite}|\n" "Provider" "Location" "Download" "Upload" "Data Used" "Latency"
+      printf "${cbwhite}+%87s+${creset}\n" | tr ' ' '-'
     fi
   } | parse_output
 }
@@ -902,15 +948,15 @@ parse_iperf() {
       while IFS='|' read -r provider loc port url pingable; do
         runiperf $url $port $provider $iperf_flags
         # Latency test
-        printf "%s" "Performing latency test to $provider (avg of 5)"
+        say "Performing latency test to $provider (avg of 5)"
 	      latency=$(timeout 10 ping -qc5 $pingable 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
-        BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output | tee /dev/tty)
+        awkres=$(awk -v white="$cbwhite" -v yellow="$clyl" -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        BEGIN { printf("%s| %s%-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s %s|\n", white, yellow, prot, prov, loc, hum(send), hum(rec), lat, "ms", white) }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          awkres=$(printf "%s" "$awkres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres=$(printf "%s" "$awkres" | if [ -n "$arg_colorize" ]; then anstripper; else cat; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           awkres="${awkres#?}"; awkres="${awkres%?}"
           IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
           $awkres
@@ -929,7 +975,7 @@ PVFJ
         unset send_speed rec_speed prot awkres
       done
     }
-    printf "+%81s+\n" | tr ' ' '-' | parse_output
+    printf "${cbgreen}+${cbwhite}%81s${cbgreen}+\n" | tr ' ' '-' | parse_output
   fi
   # Internet Protocol Version 6 (IPv6) test
   if [ "$ipv6_status" = "true" ]; then
@@ -940,15 +986,15 @@ PVFJ
       while IFS='|' read -r provider loc port url pingable; do
         runiperf $url $port $provider $iperf_flags
         # Latency test
-        printf "%s" "Performing latency test to $provider (avg of 5)"
+        say "Performing latency test to $provider (avg of 5)"
         latency=$(timeout 10 ping6 -qc5 $pingable 2>&1 | awk -F/ '/^(rtt|round-trip)/ { printf "%.1f", $5 } END{ if(!NR) print "busy" }')
         overline
         # End latency test
-        awkres=$(awk -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
-        BEGIN { printf("| %-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s |\n", prot, prov, loc, hum(send), hum(rec), lat, "ms") }' | parse_output | tee /dev/tty)
+        awkres=$(awk -v white="$cbwhite" -v yellow="$clyl" -v prov="$provider" -v loc="$loc" -v send="$iperf_sendlog" -v rec="$iperf_reclog" -v prot="$prot" -v lat="$latency" 'function hum(x,   v,p) { split( "Kb/s Mb/s Gb/s Tb/s", v, " "); if(!(x=="" || index(x, "0.00"))) {if (x) p=int(log(x)/log(1000)); else p == 0; return sprintf("%6.1f %1.5s" , x/1000^p, v[p+1] );} else{ return sprintf("%11.5s", "busy") } }
+        BEGIN { printf("%s| %s%-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s %s|\n", white, yellow, prot, prov, loc, hum(send), hum(rec), lat, "ms", white) }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          awkres=$(printf "%s" "$awkres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres=$(printf "%s" "$awkres" | if [ -n "$arg_colorize" ]; then anstripper; else cat; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           awkres="${awkres#?}"; awkres="${awkres%?}"
           IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
           $awkres
@@ -967,7 +1013,7 @@ PVSJ
         unset send_speed rec_speed prot awkres
       done
     }
-    printf "+%81s+\n" | tr ' ' '-' | parse_output
+    printf "${cbgreen}+${cbwhite}%81s${cbgreen}+\n" | tr ' ' '-' | parse_output
   fi
 }
 parse_speedtest() {
@@ -976,7 +1022,7 @@ parse_speedtest() {
   echo "$spt_provider" |
   {
     while IFS='|' read -r provider loc url; do
-      printf %s "Performing Ookla Speedtest to $provider"
+      say "Performing Ookla Speedtest to $provider"
       ( sed ':a;s/^\(\([^"]*,\?\|"[^",]*",\?\)*"[^",]*\),/\1 /;ta' < $sptfifo | tee $spt_res >/dev/null & )
       $speedtest --accept-gdpr --accept-license --progress=no --host $url --format=csv > $sptfifo 2>/dev/null
       sptval=$?
@@ -985,9 +1031,9 @@ parse_speedtest() {
         download="Failed"; upload="To"; data="Get"; latency="Data"; speedtestlink="NaN"
         printf "| %-11s | %-17s | %-12s | %-12s | %-9s | %-9s |\n" "$provider" "$loc" "$download" "$upload" "$data" "$latency"
       else
-        sptres=$(cat "$spt_res" | awk -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "b/s Kb/s Mb/s Gb/s Tb/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "| %-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s |\n", prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms" }' | parse_output | tee /dev/tty)
+        sptres=$(cat "$spt_res" | awk -v white="$cbwhite" -v yellow="$clyl" -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "b/s Kb/s Mb/s Gb/s Tb/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "%s| %s%-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s %s|\n", white, yellow, prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms", white }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
-          sptres=$(printf "%s" "$sptres" | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          sptres=$(printf "%s" "$sptres" | if [ -n "$arg_colorize" ]; then anstripper; else cat; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(cat "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')
           IFS='|' read -r prov loc download upload data latency <<SPTJSON
           $sptres
@@ -1027,12 +1073,12 @@ geekbench_test() {
   if [ "$gb_version" -eq 5 ]; then
     # Geekbench 5
     if [ ! -f "$geekbench_path/geekbench5" ]; then
-      printf "%s\n" "Downloading Geekbench 5, this may take a several minute..."
+      printf "${cyan}%s${creset}\n" "Downloading Geekbench 5, this may take a several minute..."
       file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
       && printf "\r%s" "$(tput cuu 2; tput ed)"
     fi
     # Perform geekbench 5 test
-    printf "%s" "Initializing geekbench 5 test..."
+    say "Initializing geekbench 5 test..."
     gb_output=$($geekbench_path/geekbench5 --upload 2>/dev/null | grep -m 1 "https://browser")
     gb_var="div"
     overline
@@ -1044,11 +1090,11 @@ geekbench_test() {
       if [ ! -f "${benchy_path}/gb${gbv}/geekbench${gbv}" ]; then
         [ "$gbv" -eq 5 ] && gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.5-Linux.tar.gz" \
         || gb_ddl_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
-        printf "%s\n" "Downloading Geekbench $gbv, this may take a several minute..."
+        printf "${cyan}%s${creset}\n" "Downloading Geekbench $gbv, this may take a several minute..."
         file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $gbpath \
         && printf "\r%s" "$(tput cuu 2; tput ed)"
       fi
-      printf "%s" "Initializing geekbench $gbv test..."
+      say "Initializing geekbench $gbv test..."
       gb_output=$($gbpath/geekbench${gbv} --upload 2>/dev/null | grep -m 1 "https://browser")
       gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
       gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
@@ -1058,12 +1104,12 @@ geekbench_test() {
   elif [ "$gb_version" -eq 4 ]; then
     # Geekbench 4
     if [ ! -f "$geekbench_path/geekbench4" ]; then
-      printf "%s\n" "Downloading Geekbench 4, this may take a several minute..."
+      printf "${cyan}%s${creset}\n" "Downloading Geekbench 4, this may take a several minute..."
       file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
       && printf "\r%s" "$(tput cuu 2; tput ed)"
     fi
     # Perform geekbench 4 test
-    printf "%s" "Initializing geekbench 4 test..."
+    say "Initializing geekbench 4 test..."
     gb_output=$($geekbench_path/geekbench${gb_version} --upload 2>/dev/null | grep -m 1 "https://browser")
     gb_var="span"
     overline
@@ -1082,16 +1128,16 @@ geekbench_test() {
         gb_single_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==1')
         gb_multi_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==2')
         gb_string=$(gb_string "$gbfile")
-        printf "+%47s+\n" | tr ' ' '-'
-        printf "| %-32s |\n" "$gb_string"
-        printf "+%47s+\n" | tr ' ' '='
-        printf "| %-18s | %-24s |\n" "Single Core" "$gb_single_core"
-        printf "| %-18s | %-24s |\n" "Multi Core" "$gb_multi_core"
-        printf "+%47s+\n" | tr ' ' '-'
-        printf "| %-32s |\n" "$gb_output"
-        printf "+%47s+\n" | tr ' ' '-'
-        printf "| %-18s | %-24s |\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
-        printf "+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}| ${cbblue}%-32s ${cbwhite}|\n" "$gb_string"
+        printf "${cbwhite}+%47s+\n" | tr ' ' '='
+        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Single Core" "$gb_single_core"
+        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Multi Core" "$gb_multi_core"
+        printf "${cbwhite}+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}| ${cblgreen}%-32s ${cbwhite}|\n" "$gb_output"
+        printf "${cbwhite}+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
+        printf "${cbwhite}+%47s+${creset}\n" | tr ' ' '-'
         # JSON
         if [ -n "$arg_json" ]; then
           cat <<GBJSON | $jq --argjson gj "$(cat)" '.geekbench_test += $gj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
@@ -1113,16 +1159,16 @@ GBJSON
         gb_single_core_5=$(awk -F "<${gb_var_5}[^>]*>(<d>)?|(</?d>)?</${gb_var_5}>" '$2~/[0-9]/{print $2}' "$gbfile_5" | awk 'FNR==1')
         gb_multi_core_5=$(awk -F "<${gb_var_5}[^>]*>(<d>)?|(</?d>)?</${gb_var_5}>" '$2~/[0-9]/{print $2}' "$gbfile_5" | awk 'FNR==2')
         gb_string_4=$(gb_string 4 "$gbfile_4"); gb_string_5=$(gb_string 5 "$gbfile_5")
-        printf "+%47s+%47s+\n" | tr ' ' '-'
-        printf "| %-32s | %-32s |\n" "$gb_string_5" "$gb_string_4"
-        printf "+%47s+%47s+\n" | tr ' ' '='
-        printf "| %-18s | %-24s | %-18s | %-24s |\n" "Single Core" "$gb_single_core_5" "Single Core" "$gb_single_core_4"
-        printf "| %-18s | %-24s | %-18s | %-24s |\n" "Multi Core" "$gb_multi_core_5" "Multi Core" "$gb_multi_core_4"
-        printf "+%47s+%47s+\n" | tr ' ' '-'
-        printf "| %-32s | %-32s |\n" "$gb_output_5" "$gb_output_4"
-        printf "+%47s+%47s+\n" | tr ' ' '-'
-        printf "| %-45s | %-45s |\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
-        printf "+%47s+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}| ${cbblue}%-32s | %-32s ${cbwhite}|\n" "$gb_string_5" "$gb_string_4"
+        printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '='
+        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Single Core" "$gb_single_core_5" "Single Core" "$gb_single_core_4"
+        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Multi Core" "$gb_multi_core_5" "Multi Core" "$gb_multi_core_4"
+        printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}| ${cblgreen}%-32s ${cbwhite}| ${cblgreen}%-32s ${cbwhite}|\n" "$gb_output_5" "$gb_output_4"
+        printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '-'
+        printf "${cbwhite}| ${cblsky}%-45s ${cbwhite}| ${cblgreen}%-45s ${cbwhite}|\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
+        printf "${cbwhite}+%47s+%47s+${creset}\n" | tr ' ' '-'
         # JSON
         if [ -n "$arg_json" ]; then
           cat <<GBJSON | $jq --argjson gj "$(cat)" '.geekbench_test += $gj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
@@ -1153,6 +1199,7 @@ GBJSON
 main() {
   core_pkg
   tput civis
+  colordefiner
   header_intro
   user_arch
   binarycheck
@@ -1162,8 +1209,8 @@ main() {
   if net_header; then
     [ -n "$arg_prefer_speedtest" ] && parse_speedtest || parse_iperf
   fi
-  geekbench_test
-  closing_json; send_output
+  geekbench_test; closing_json
+  anstripper_ng; send_output
   [ -z "$arg_keep_file" ] && rm -fr -- "$benchy_path"
 }
 main

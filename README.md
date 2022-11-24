@@ -24,17 +24,17 @@ Via curl.
 ### Alias
 1. Add following command to your `.bashrc` or `.bash_aliases`.
 	- wget.
-	
+
 			benchy() { wget -qO- benchy.pw | sh -s -- "$@"; }
 	- curl.
-	
+
 			benchy() { curl -Ls benchy.pw | sh -s -- "$@"; }
 2. Source the file then (e.g. `. ~/.bashrc` or `. ~/.bash_aliases`).
 3. You can now painlessly perform benchmark without typing long command. Be sure to check available option on [Supported Flag](https://github.com/L1so/benchy#supported-flag)
-```bash	
-$ benchy -v
-Version  : v2.4
-Revision : 22 Nov 2022
+```bash
+	$ benchy -v
+	Version  : v2.4
+	Revision : 24 Nov 2022
 ```
 ### Environment Variable
 If you find yourself perform benchmark alot, you may find this feature useful. By default benchy will find if `.benchy_opt` exist on home directory, and will pick variable defined there.
@@ -42,10 +42,14 @@ If you find yourself perform benchmark alot, you may find this feature useful. B
 	```
 	wget -qO- benchy.pw | sh -s -- -e
 	```
-2. [Uncomment any function that you wish to enable.](https://github.com/L1so/benchy/blob/main/.benchy_opt)
-3. Run benchy as usual, without any option.
+	or
 	```
-	wget -qO- benchy.pw | sh
+	wget -O $HOME/.benchy_opt benchy.pw/env
+	```
+2. [Uncomment any function that you wish to enable.](https://github.com/L1so/benchy/blob/main/.benchy_opt)
+3. Run benchy with option `-u` or `--use-env`.
+	```
+	wget -qO- benchy.pw | sh -s -- -u
 	```
 	You will see `Found predefined option !` message in your screen.
 ## Supported flag
@@ -172,4 +176,3 @@ Ookla Network Speedtest (Region: Asia)
 | Benchy result      | http://sprunge.us/SyeE9m |
 +-----------------------------------------------+
 ```
-
