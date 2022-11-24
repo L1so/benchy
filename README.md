@@ -57,6 +57,7 @@ If you find yourself perform benchmark alot, you may find this feature useful. B
 Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
+  -c, --color             Enable coloring on output (requiring perl)
   -e, --grab-env          Pull benchy environmental file
   -u, --use-env           Use environmental file in place of regular option
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
