@@ -9,24 +9,26 @@ colordefiner() {
     unset cbwhite cbgreen cbyan cbsky cblgreen cbyellw cblsky
     unset creset
     return 1
-  elif ! is_installed perl; then
-    die "Perl not installed, please install it and try again" "Or you can proceed without --color"
-    exit 1
-  elif [ "$(tput colors)" -ne "256" ]; then
-    die "Your terminal does not support 256 color pallete" "Retry without --color option"
-    exit 1
   else
-    # Non bold
-    cred=$(tput sgr0; tput setaf 1); clyl=$(tput sgr0; tput setaf 11)
-    cgreen=$(tput sgr0; tput setaf 2); cyan=$(tput sgr0; tput setaf 6)
-    cyellw=$(tput sgr0; tput setaf 215); csky=$(tput sgr0; tput setaf 14)
-    # Bold
-    cbwhite=$(tput bold; tput setaf 7); cblgreen=$(tput bold; tput setaf 121)
-    cbgreen=$(tput bold; tput setaf 2); cbyan=$(tput bold; tput setaf 6)
-    cbyellw=$(tput bold; tput setaf 11); cbsky=$(tput bold; tput setaf 14)
-    cblsky=$(tput bold; tput setaf 159)
-    # Reset color
-    creset=$(tput sgr0)
+    if ! is_installed perl; then
+      die "Perl not installed, please install it and try again" "Or you can proceed without --color"
+      exit 1
+    elif [ "$(tput colors)" -ne "256" ]; then
+      die "Your terminal does not support 256 color pallete" "Retry without --color option"
+      exit 1
+    else
+      # Non bold
+      cred=$(tput sgr0; tput setaf 1); clyl=$(tput sgr0; tput setaf 11)
+      cgreen=$(tput sgr0; tput setaf 2); cyan=$(tput sgr0; tput setaf 6)
+      cyellw=$(tput sgr0; tput setaf 215); csky=$(tput sgr0; tput setaf 14)
+      # Bold
+      cbwhite=$(tput bold; tput setaf 7); cblgreen=$(tput bold; tput setaf 121)
+      cbgreen=$(tput bold; tput setaf 2); cbyan=$(tput bold; tput setaf 6)
+      cbyellw=$(tput bold; tput setaf 11); cbsky=$(tput bold; tput setaf 14)
+      cblsky=$(tput bold; tput setaf 159)
+      # Reset color
+      creset=$(tput sgr0)
+    fi
   fi
 }
 anstripper() { perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g' ; }
@@ -248,7 +250,7 @@ cleanup() {
   tput sgr0
   rm -f $fiofile $lsblkfifo $fiores $mainjson
 }
-trap 'cleanup; trap - EXIT; exit' EXIT INT HUP SIGINT
+trap 'cleanup; trap - EXIT; exit' EXIT INT HUP
 
 file_grabber() {
   ddl_input="$1"
