@@ -37,7 +37,7 @@ anstripper_ng() {
     $decolorize $outputdir/benchy.log > /tmp/temporary_benchy.log && mv /tmp/temporary_benchy.log $outputdir/benchy.log
   fi
 }
-currentVersion="v2.4"; rev_date="24 Nov 2022"
+currentVersion="v2.4"; rev_date="26 Nov 2022"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -406,8 +406,10 @@ binarycheck() {
     [ ! -e $ipformation ] && file_grabber "ip-api.com/json" $ipformation
     # Continent.csv
     [ -n "$arg_use_region" ] && { [ ! -e $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list; }
-    # perl decolorizer
-    [ ! -e $decolorize ] && file_grabber "${gitlink}/uncolor.perl" $decolorize && chmod u+x "$decolorize"
+    if [ -n "$arg_colorize" ]; then
+      # perl decolorizer
+      [ ! -e $decolorize ] && file_grabber "${gitlink}/uncolor.perl" $decolorize && chmod u+x "$decolorize"
+    fi
 
     # Skipping download binary if os was openbsd
     if [ "$osv" = "bsd" ]; then
@@ -461,7 +463,7 @@ binarycheck() {
 user_arch() {
   # Determine what type of architecture this server runs off
   # Most commonly would be 64 bit
-  arch=$(uname -m)
+  arch=$(uname -m); disklimit="2147483648" # 2048 MB
   case "$arch" in
     *x86_64*|*amd64*)
     arch="x86_64"
@@ -489,7 +491,7 @@ user_arch() {
       *64*) arch="aarch64";;
       *) arch="armhf";;
     esac
-    fio_size="512M"
+    fio_size="512M"; disklimit="536870912"
     gb_version=5
     gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.4-LinuxARMPreview.tar.gz"
     ;;
@@ -559,8 +561,10 @@ sysinfo() {
   fi
   [ "$osv" = "bsd" ] && cpu_freq=$(printf "@ %s Mhz" $(sysctl -n hw.cpuspeed 2>/dev/null)) || { cpu_freq=$(awk 'NR==1{ print "@ "($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("@ %s MHz\n", $2); exit}}' /proc/cpuinfo); }
   cpu_core=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
-  dmesg | egrep -qe 'AES' && { cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; } || grep -q -m 1 aes /proc/cpuinfo && { cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; } || { cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; }
-  dmesg | egrep -qe '(VMX|SVM)' && { cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; } || grep -q -m 1 'vmx\|svm' /proc/cpuinfo && { cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; } || { cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; }
+  { if grep -q -m 1 aes /proc/cpuinfo; then cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; else cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; fi ; } ||
+  { if dmesg 2>/dev/null | egrep -qe 'AES'; then cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; else cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; fi ; }
+  { if grep -q -m 1 'vmx\|svm' /proc/cpuinfo; then cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; else cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; fi ; } ||
+  { if dmesg 2>/dev/null | egrep -qe '(VMX|SVM)'; then cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; else cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; fi ; }
   virt_type="$(print_virtualization)"
   virt_type="${virt_type:-none}"
 
@@ -637,6 +641,7 @@ disk_test() {
   { [ "$arg_skip_disk" = "true" ] || [ "$osv" = "bsd" ]; } && return 1
   lsblkfifo="${benchy_path}/lsblk.fifo"; fiofile="${benchy_path}/fio.log"; fiores="${benchy_path}/fio_res.log"
   [ -p "$lsblkfifo" ] || mkfifo -m 600 "$lsblkfifo"
+  contain_home=$(df $HOME | awk 'NR==2{ print $NF }') # Check which partition contain $HOME directory
   print_space 1
   {
     $lsblk -nPpbo KNAME,SIZE,PKNAME,MOUNTPOINT,FSTYPE |
@@ -664,22 +669,16 @@ awk -F'="|" ?' -v OFS='|' '
 '
   } > "$lsblkfifo" &
 while IFS='|' read -r devname devsize devmp devtype; do
-  mountpoint=$devmp
-  disklimit="2147483648" # 2048 MB
-  case "$arch" in
-    *arm*|*aarch*)
-    [ "$mountpoint" = "/" ] && disklimit="536870912";; # 512 MB
-  esac
   [ -z "$devtype" ] && devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
-  [ "$mountpoint" = "/" ] && mountpoint=$benchy_path
   if [ "$(echo "$disklimit > $devsize" | $bc)" -eq 1 ]; then
     printf "${cyan}%s${creset}\n" "Insufficient storage on $devname" | parse_output
     continue
   fi
-  if [ ! -w "$mountpoint" ]; then
-    printf "${cyan}%s${creset}\n" "No write permission to $mountpoint, skipping disk" | parse_output
+  if [ ! -w "$devmp" ]; then
+    printf "${cyan}%s${creset}\n" "No write permission to $devmp, skipping disk" | parse_output
     continue
   fi
+  if [ "$devmp" = "$contain_home" ]; then mountpoint=$benchy_path; else mountpoint=$devmp; fi
   # Run fio on each block size
   for bs in 4k 64k 512k 1m; do
     # Iterate over each defined block_size from array
