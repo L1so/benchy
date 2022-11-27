@@ -1,4 +1,4 @@
-# Benchy - Server Benchmarking Script Built in Dash
+# Benchy - Server Benchmarking Script
 
 Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to optimize the process. [Benchy is known to work across several shells](https://github.com/L1so/benchy#portability).
 
@@ -46,7 +46,7 @@ If you find yourself perform benchmark alot, you may find this feature useful. B
 	```
 	wget -O $HOME/.benchy_opt benchy.pw/env
 	```
-2. [Uncomment any function that you wish to enable.](https://github.com/L1so/benchy/blob/main/.benchy_opt)
+2. [Uncomment any function that you wish to enable.](https://github.com/L1so/benchy/blob/main/benchy_env)
 3. Run benchy with option `-u` or `--use-env`.
 	```
 	wget -qO- benchy.pw | sh -s -- -u
@@ -57,7 +57,7 @@ If you find yourself perform benchmark alot, you may find this feature useful. B
 Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
-  -c, --color             Enable coloring on output (requiring perl)
+  -c, --color=yes|no      Enable or disable colored output (default: Enabled)
   -e, --grab-env          Pull benchy environmental file
   -u, --use-env           Use environmental file in place of regular option
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
@@ -68,7 +68,7 @@ Options:
   -n, --skip-network      Skip network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
-  -r, --region=ARG        Specify region to bench network (as, af, eu, na, sa, oc, mix)
+  -r, --region=ARG        Specify region to bench network (Valid ARG: as, af, eu, na, sa, oc, mix)
   -s, --speedtest         Prefer speedtest in place of iperf3
   -i, --show-ip           Display server public IP address
   -p, --parse-only        Only parse basic information (equal to -ndg)

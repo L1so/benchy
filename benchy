@@ -3,41 +3,47 @@
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
+disable_color() {
+  arg_colorize="false"
+  unset cred cgreen cyellw cblue cyan csky clyl creset
+  unset cbwhite cbgreen cbyan cbsky cblgreen cbyellw cblsky
+}
 colordefiner() {
-  if [ -z "$arg_colorize" ]; then
-    unset cred cgreen cyellw cblue cyan csky clyl
-    unset cbwhite cbgreen cbyan cbsky cblgreen cbyellw cblsky
-    unset creset
-    return 1
+  if [ "$arg_colorize" = "false" ]; then
+    disable_color && return 1
   else
     if ! is_installed perl; then
-      die "Perl not installed, please install it and try again" "Or you can proceed without --color"
-      exit 1
+      disable_color
+      die "Continuing without color as perl is not found"
     elif [ "$(tput colors)" -ne "256" ]; then
-      die "Your terminal does not support 256 color pallete" "Retry without --color option"
-      exit 1
+      disable_color
+      die "Continuing without color as your terminal does not support 256 colors"
     else
-      # Non bold
-      cred=$(tput sgr0; tput setaf 1); clyl=$(tput sgr0; tput setaf 11)
-      cgreen=$(tput sgr0; tput setaf 2); cyan=$(tput sgr0; tput setaf 6)
-      cyellw=$(tput sgr0; tput setaf 215); csky=$(tput sgr0; tput setaf 14)
-      # Bold
-      cbwhite=$(tput bold; tput setaf 7); cblgreen=$(tput bold; tput setaf 121)
-      cbgreen=$(tput bold; tput setaf 2); cbyan=$(tput bold; tput setaf 6)
-      cbyellw=$(tput bold; tput setaf 11); cbsky=$(tput bold; tput setaf 14)
-      cblsky=$(tput bold; tput setaf 159)
-      # Reset color
-      creset=$(tput sgr0)
+      if [ -t 1 ]; then
+        # Non bold
+        cred=$(tput sgr0; tput setaf 1); clyl=$(tput sgr0; tput setaf 11)
+        cgreen=$(tput sgr0; tput setaf 2); cyan=$(tput sgr0; tput setaf 6)
+        cyellw=$(tput sgr0; tput setaf 215); csky=$(tput sgr0; tput setaf 14)
+        # Bold
+        cbwhite=$(tput bold; tput setaf 7); cblgreen=$(tput bold; tput setaf 121)
+        cbgreen=$(tput bold; tput setaf 2); cbyan=$(tput bold; tput setaf 6)
+        cbyellw=$(tput bold; tput setaf 11); cbsky=$(tput bold; tput setaf 14)
+        cblsky=$(tput bold; tput setaf 159)
+        # Reset color
+        creset=$(tput sgr0)
+      else
+        disable_color && return 1
+      fi
     fi
   fi
 }
 anstripper() { perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g' ; }
 anstripper_ng() {
-  if [ "$parseit" = "true" ] && [ -n "$arg_colorize" ]; then
+  if [ "$parseit" = "true" ] && [ "$arg_colorize" != "false" ]; then
     $decolorize $outputdir/benchy.log > /tmp/temporary_benchy.log && mv /tmp/temporary_benchy.log $outputdir/benchy.log
   fi
 }
-currentVersion="v2.4"; rev_date="26 Nov 2022"
+currentVersion="v2.4"; rev_date="27 Nov 2022"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -58,7 +64,7 @@ display_help() {
 Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
-  -c, --color             Enable coloring on output (requiring perl)
+  -c, --color=yes|no      Enable or disable colored output (default: Enabled)
   -e, --grab-env          Pull benchy environmental file
   -u, --use-env           Use environmental file in place of regular option
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
@@ -69,7 +75,7 @@ Options:
   -n, --skip-network      Skip network measurement test
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
-  -r, --region=ARG        Specify region to bench network (as, af, eu, na, sa, oc, mix)
+  -r, --region=ARG        Specify region to bench network (Valid ARG: as, af, eu, na, sa, oc, mix)
   -s, --speedtest         Prefer speedtest in place of iperf3
   -i, --show-ip           Display server public IP address
   -p, --parse-only        Only parse basic information (equal to -ndg)
@@ -80,7 +86,7 @@ EOT
 is_installed() { command -v $1 >/dev/null 2>&1; }
 die() { printf "%s\n" "$@" >&2; return 1; }
 say() {
-  if [ -z "$arg_colorize" ]; then
+  if [ "$arg_colorize" = "false" ]; then
     printf "%s" "$@"
   else
     printf "${cyan}%s${creset}" "$@"
@@ -115,7 +121,15 @@ if [ "$#" != 0 ]; then
       -4|--geekbench4) arg_use_gb4="true";;
       -q|--geekbench) arg_use_gb45="true";;
       -j|--json) arg_json="true";;
-      -c|--color) arg_colorize="true";;
+      -c|--color)
+      assert_argument "$1" "$opt"
+      colchoice="$1"
+      case "$colchoice" in
+        yes) arg_colorize="true";; # Default
+        no) arg_colorize="false";;
+        *) die "Valid value is yes|no"; exit 2;;
+      esac
+      shift ;;
       -m|--region) arg_use_region="true";;
       -u|--use-env) arg_use_env="true";;
       -e|--grab-env)
@@ -406,7 +420,7 @@ binarycheck() {
     [ ! -e $ipformation ] && file_grabber "ip-api.com/json" $ipformation
     # Continent.csv
     [ -n "$arg_use_region" ] && { [ ! -e $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list; }
-    if [ -n "$arg_colorize" ]; then
+    if [ "$arg_colorize" != "false" ]; then
       # perl decolorizer
       [ ! -e $decolorize ] && file_grabber "${gitlink}/uncolor.perl" $decolorize && chmod u+x "$decolorize"
     fi
@@ -957,7 +971,7 @@ parse_iperf() {
         BEGIN { printf("%s| %s%-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s %s|\n", white, yellow, prot, prov, loc, hum(send), hum(rec), lat, "ms", white) }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          awkres=$(printf "%s" "$awkres" | if [ -n "$arg_colorize" ]; then anstripper; else cat; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres=$(printf "%s" "$awkres" | if [ "$arg_colorize" = "false" ]; then cat; else anstripper; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           awkres="${awkres#?}"; awkres="${awkres%?}"
           IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
           $awkres
@@ -995,7 +1009,7 @@ PVFJ
         BEGIN { printf("%s| %s%-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s %s|\n", white, yellow, prot, prov, loc, hum(send), hum(rec), lat, "ms", white) }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          awkres=$(printf "%s" "$awkres" | if [ -n "$arg_colorize" ]; then anstripper; else cat; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres=$(printf "%s" "$awkres" | if [ "$arg_colorize" = "false" ]; then cat; else anstripper; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           awkres="${awkres#?}"; awkres="${awkres%?}"
           IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
           $awkres
@@ -1034,7 +1048,7 @@ parse_speedtest() {
       else
         sptres=$(cat "$spt_res" | awk -v white="$cbwhite" -v yellow="$clyl" -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "b/s Kb/s Mb/s Gb/s Tb/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "%s| %s%-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s %s|\n", white, yellow, prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms", white }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
-          sptres=$(printf "%s" "$sptres" | if [ -n "$arg_colorize" ]; then anstripper; else cat; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          sptres=$(printf "%s" "$sptres" | if [ "$arg_colorize" = "false" ]; then cat; else anstripper; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(cat "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')
           IFS='|' read -r prov loc download upload data latency <<SPTJSON
           $sptres
