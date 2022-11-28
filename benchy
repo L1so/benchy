@@ -39,11 +39,11 @@ colordefiner() {
 }
 anstripper() { perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g' ; }
 anstripper_ng() {
-  if [ "$parseit" = "true" ] && [ "$arg_colorize" != "false" ]; then
+  if [ "$parseit" = "true" ] && [ "$docolor" = "true" ]; then
     $decolorize $outputdir/benchy.log > /tmp/temporary_benchy.log && mv /tmp/temporary_benchy.log $outputdir/benchy.log
   fi
 }
-currentVersion="v2.4"; rev_date="27 Nov 2022"
+currentVersion="v2.4"; rev_date="28 Nov 2022"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -64,7 +64,7 @@ display_help() {
 Usage: benchy [options]
 Options:
   -o, --output            Store benchy result to file in given directory (default: Current directory)
-  -c, --color=yes|no      Enable or disable colored output (default: Enabled)
+  -c, --color=ARG         Enable or disable colored output (Valid ARG: yes, no, force)
   -e, --grab-env          Pull benchy environmental file
   -u, --use-env           Use environmental file in place of regular option
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
@@ -127,7 +127,8 @@ if [ "$#" != 0 ]; then
       case "$colchoice" in
         yes) arg_colorize="true";; # Default
         no) arg_colorize="false";;
-        *) die "Valid value is yes|no"; exit 2;;
+        force) arg_colorize="force";;
+        *) die "Valid value is yes|no|force"; exit 2;;
       esac
       shift ;;
       -m|--region) arg_use_region="true";;
@@ -211,7 +212,7 @@ core_pkg() {
 }
 parse_output() {
   if [ "$parseit" = "true" ]; then
-    tee -a $outputdir/benchy.log
+    tee -a $outputdir/benchy.log $outputdir/benchy_c.log
   else
     cat
   fi
@@ -420,10 +421,10 @@ binarycheck() {
     [ ! -e $ipformation ] && file_grabber "ip-api.com/json" $ipformation
     # Continent.csv
     [ -n "$arg_use_region" ] && { [ ! -e $continent_list ] && file_grabber "https://gist.githubusercontent.com/L1so/e9e17570a4d81f12bb98c8ddc3bab539/raw" $continent_list; }
-    if [ "$arg_colorize" != "false" ]; then
-      # perl decolorizer
-      [ ! -e $decolorize ] && file_grabber "${gitlink}/uncolor.perl" $decolorize && chmod u+x "$decolorize"
-    fi
+    case "$arg_colorize" in
+      false) docolor="false";;
+      *) docolor="true"; [ ! -e $decolorize ] && file_grabber "${gitlink}/uncolor.perl" $decolorize && chmod u+x "$decolorize";;
+    esac
 
     # Skipping download binary if os was openbsd
     if [ "$osv" = "bsd" ]; then
@@ -688,11 +689,11 @@ while IFS='|' read -r devname devsize devmp devtype; do
     printf "${cyan}%s${creset}\n" "Insufficient storage on $devname" | parse_output
     continue
   fi
-  if [ ! -w "$devmp" ]; then
-    printf "${cyan}%s${creset}\n" "No write permission to $devmp, skipping disk" | parse_output
+  if [ "$devmp" = "$contain_home" ]; then mountpoint=$benchy_path; else mountpoint=$devmp; fi
+  if [ ! -w "$mountpoint" ]; then
+    printf "${cyan}%s${creset}\n" "No write permission to $mountpoint, skipping disk" | parse_output
     continue
   fi
-  if [ "$devmp" = "$contain_home" ]; then mountpoint=$benchy_path; else mountpoint=$devmp; fi
   # Run fio on each block size
   for bs in 4k 64k 512k 1m; do
     # Iterate over each defined block_size from array
@@ -971,7 +972,7 @@ parse_iperf() {
         BEGIN { printf("%s| %s%-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s %s|\n", white, yellow, prot, prov, loc, hum(send), hum(rec), lat, "ms", white) }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          awkres=$(printf "%s" "$awkres" | if [ "$arg_colorize" = "false" ]; then cat; else anstripper; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres=$(printf "%s" "$awkres" | case "$arg_colorize" in true|force) anstripper;; *) cat;; esac | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           awkres="${awkres#?}"; awkres="${awkres%?}"
           IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
           $awkres
@@ -1009,7 +1010,7 @@ PVFJ
         BEGIN { printf("%s| %s%-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s %s|\n", white, yellow, prot, prov, loc, hum(send), hum(rec), lat, "ms", white) }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          awkres=$(printf "%s" "$awkres" | if [ "$arg_colorize" = "false" ]; then cat; else anstripper; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres=$(printf "%s" "$awkres" | case "$arg_colorize" in true|force) anstripper;; *) cat;; esac | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           awkres="${awkres#?}"; awkres="${awkres%?}"
           IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
           $awkres
@@ -1048,7 +1049,7 @@ parse_speedtest() {
       else
         sptres=$(cat "$spt_res" | awk -v white="$cbwhite" -v yellow="$clyl" -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "b/s Kb/s Mb/s Gb/s Tb/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "%s| %s%-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s %s|\n", white, yellow, prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms", white }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
-          sptres=$(printf "%s" "$sptres" | if [ "$arg_colorize" = "false" ]; then cat; else anstripper; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          sptres=$(printf "%s" "$sptres" | case "$arg_colorize" in true|force) anstripper;; *) cat;; esac | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(cat "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')
           IFS='|' read -r prov loc download upload data latency <<SPTJSON
           $sptres
@@ -1226,6 +1227,10 @@ main() {
   fi
   geekbench_test; closing_json
   anstripper_ng; send_output
+  case "$arg_colorize" in
+    force|false) mv $outputdir/benchy_c.log $outputdir/benchy.log 2>/dev/null;;
+    *) rm -f $outputdir/benchy_c.log;;
+  esac
   [ -z "$arg_keep_file" ] && rm -fr -- "$benchy_path"
 }
 main
