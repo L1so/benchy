@@ -1,6 +1,6 @@
 # Benchy - Server Benchmarking Script
 
-Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do.
+Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do— I have rewritten some of snippets to optimize the process. [Benchy is known to work across several shells](https://github.com/L1so/benchy#portability).
 
 ## Table of Contents
 - [Usage](https://github.com/L1so/benchy#usage)

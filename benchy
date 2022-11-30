@@ -43,7 +43,7 @@ anstripper_ng() {
     $decolorize $outputdir/benchy.log > /tmp/temporary_benchy.log && mv /tmp/temporary_benchy.log $outputdir/benchy.log
   fi
 }
-currentVersion="v2.4"; rev_date="28 Nov 2022"
+currentVersion="v2.4"; rev_date="30 Nov 2022"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -314,7 +314,7 @@ print_virtualization() {
   fi
   # Fallback to manual test if none of the above working
   # Qemu test
-  if ls -1 /dev/disk/by-id 2>/dev/null | grep -qiF qemu; then
+  if ls -1 /dev/disk/by-id/*qemu* >/dev/null 2>&1; then
     echo "qemu" && return 0
   fi
   # lxc test
@@ -577,9 +577,9 @@ sysinfo() {
   [ "$osv" = "bsd" ] && cpu_freq=$(printf "@ %s Mhz" $(sysctl -n hw.cpuspeed 2>/dev/null)) || { cpu_freq=$(awk 'NR==1{ print "@ "($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("@ %s MHz\n", $2); exit}}' /proc/cpuinfo); }
   cpu_core=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
   { if grep -q -m 1 aes /proc/cpuinfo; then cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; else cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; fi ; } ||
-  { if dmesg 2>/dev/null | egrep -qe 'AES'; then cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; else cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; fi ; }
+  { if dmesg 2>/dev/null | grep -qE 'AES'; then cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; else cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; fi ; }
   { if grep -q -m 1 'vmx\|svm' /proc/cpuinfo; then cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; else cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; fi ; } ||
-  { if dmesg 2>/dev/null | egrep -qe '(VMX|SVM)'; then cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; else cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; fi ; }
+  { if dmesg 2>/dev/null | grep -qE '(VMX|SVM)'; then cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; else cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; fi ; }
   virt_type="$(print_virtualization)"
   virt_type="${virt_type:-none}"
 
@@ -591,14 +591,14 @@ sysinfo() {
   if [ "$osv" = "bsd" ]; then
       mem_info=$(sysctl -n hw.physmem)
       mem_usage=$(vmstat | tail -n1 | awk '{print ($3+0)}')
-      mem_usage=$(echo "$mem_usage * 1024" | bc)
-      mem_free=$(echo "$mem_info-$mem_usage" | bc)
-      mem_percentage=$(echo "$mem_usage*1024*100/$mem_free" | bc)
+      mem_usage=$(echo "$mem_usage * 1024" | $bc)
+      mem_free=$(echo "$mem_info-$mem_usage" | $bc)
+      mem_percentage=$(echo "$mem_usage*1024*100/$mem_free" | $bc)
       swap_info=$(pstat -s | awk '/dev/ {print $2}' | convertsize)
 
       mem_info=$(echo "$mem_info" | convertsize)
-      mem_usage=$(echo "$mem_usage" | bc | convertsize)
-      mem_percentage=$(echo "$mem_percentage" "%")
+      mem_usage=$(echo "$mem_usage" | $bc | convertsize)
+      mem_percentage=$(printf "%s %%" "$mem_percentage")
   else
       mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
       mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB\n", $3/1024^3 }')
@@ -814,10 +814,10 @@ EOF
       ;;
       "Europe")
       ipv4_provider=$(cat << 'EOF'
-Online.net|Paris, FR|5200-5209|ping.online.net|ping.online.net
-Clouvider|London, UK|5200-5209|lon.speedtest.clouvider.net|lon.speedtest.clouvider.net
+FiberBy|Copenhagen, DK|9201-9240|speed.fiberby.dk|speed.fiberby.dk
+WOBCOM|Wolfsburg, DE|5201-5201|a400.speedtest.wobcom.de|a400.speedtest.wobcom.de
 Novogara|Amsterdam, NL|5200-5209|speedtest.ams1.novogara.net|speedtest.ams1.novogara.net
-Wilhelm.tel|Hamburg, DE|5200-5209|speedtest.wtnet.de|speedtest.wtnet.de
+Sasag|Schaff, CH|5200-5209|speedtest.shinternet.ch|speedtest.shinternet.ch
 Alwyzon|Vienna, AT|5201-5202|lg.vie.alwyzon.net|lg.vie.alwyzon.net
 EOF
       )
@@ -972,7 +972,7 @@ parse_iperf() {
         BEGIN { printf("%s| %s%-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s %s|\n", white, yellow, prot, prov, loc, hum(send), hum(rec), lat, "ms", white) }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          awkres=$(printf "%s" "$awkres" | case "$arg_colorize" in true|force) anstripper;; *) cat;; esac | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres=$(printf "%s" "$awkres" | if [ "$docolor" = "true" ]; then anstripper; else cat; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           awkres="${awkres#?}"; awkres="${awkres%?}"
           IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
           $awkres
@@ -1010,7 +1010,7 @@ PVFJ
         BEGIN { printf("%s| %s%-5s | %-11s | %-15s | %-12s | %-12s | %6.1f %-1.16s %s|\n", white, yellow, prot, prov, loc, hum(send), hum(rec), lat, "ms", white) }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
           $jq '.network_bench |= {"test_method": "iperf3"} + .' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          awkres=$(printf "%s" "$awkres" | case "$arg_colorize" in true|force) anstripper;; *) cat;; esac | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          awkres=$(printf "%s" "$awkres" | if [ "$docolor" = "true" ]; then anstripper; else cat; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           awkres="${awkres#?}"; awkres="${awkres%?}"
           IFS='|' read -r proto provid loc iperf_sendlog iperf_reclog latency <<EOF
           $awkres
@@ -1049,7 +1049,7 @@ parse_speedtest() {
       else
         sptres=$(cat "$spt_res" | awk -v white="$cbwhite" -v yellow="$clyl" -v prov="$provider" -v loc="$loc" -F, 'BEGIN { FS="," }; function hum(x,   v,p) { split( "b/s Kb/s Mb/s Gb/s Tb/s", v, " "); x*=8; p=int(log(x)/log(1000)); return sprintf("%6.1f %1.5s" , (x ? x/1000^p : 0), v[p+1] ); } { gsub(/\042/, ""); printf "%s| %s%-11s | %-17s | %-12s | %-12s | %6.1f %1.5s | %6.1f %-1.16s %s|\n", white, yellow, prov, loc, hum($6), hum($7), ($8+$9)/(1000^3), "GB", $3, "ms", white }' | parse_output | tee /dev/tty)
         if [ -n "$arg_json" ]; then
-          sptres=$(printf "%s" "$sptres" | case "$arg_colorize" in true|force) anstripper;; *) cat;; esac | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
+          sptres=$(printf "%s" "$sptres" | if [ "$docolor" = "true" ]; then anstripper; else cat; fi | sed -e 's/[[:space:]]*|[[:space:]]*/|/g')
           sptres="${sptres#?}"; sptres="${sptres%?}"; speedtestlink=$(cat "$spt_res" | awk -F',' '{ gsub(/\042/, ""); print $10 }')
           IFS='|' read -r prov loc download upload data latency <<SPTJSON
           $sptres
@@ -1133,7 +1133,7 @@ geekbench_test() {
   {
     # Parsing result
     if [ -n "$gb_output" ] || { [ -n "$gb_output_5" ] && [ -n "$gb_output_4" ]; }; then
-      totaltime=$(($(awk 'BEGIN{srand();print srand()}')-$startTime))
+      totaltime=$(($(awk 'BEGIN{srand();print srand()}')-startTime))
       totalmin=$(echo "($totaltime % 3600) / 60" | $bc)
       totalsec=$(echo "$totaltime % 60" | $bc)
       if [ -z "$arg_use_gb45" ]; then
@@ -1145,7 +1145,7 @@ geekbench_test() {
         gb_multi_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==2')
         gb_string=$(gb_string "$gbfile")
         printf "${cbwhite}+%47s+\n" | tr ' ' '-'
-        printf "${cbwhite}| ${cbblue}%-32s ${cbwhite}|\n" "$gb_string"
+        printf "${cbwhite}| ${cbwhite}%-32s |\n" "$gb_string"
         printf "${cbwhite}+%47s+\n" | tr ' ' '='
         printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Single Core" "$gb_single_core"
         printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Multi Core" "$gb_multi_core"
