@@ -584,9 +584,11 @@ sysinfo() {
   virt_type="${virt_type:-none}"
 
   # Disk & Memory Usage
-  df_output=$(df -k /)
-  disk_info=$(echo "$df_output" | awk 'NR==2{ print $2 }' | convertsize)
-  disk_usage=$(echo "$df_output"| awk 'NR==2{ print $3 }'| convertsize)
+  #df_output=$(df -k /)
+  # Fixed for multiple disks not showing correct size.
+  df_output=$(df -k -t ext2 -t ext3 -t ext4 -t btrfs -t xfs -t vfat -t ntfs -t swap --total | grep "^total")
+  disk_info=$(echo "$df_output" | awk '{ print $2 }' | convertsize)
+  disk_usage=$(echo "$df_output"| awk '{ print $3 }'| convertsize)
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
   if [ "$osv" = "bsd" ]; then
       mem_info=$(sysctl -n hw.physmem)
@@ -603,7 +605,9 @@ sysinfo() {
       mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
       mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB\n", $3/1024^3 }')
       mem_percentage=$(free -b | awk 'NR==2{printf "%.0f%s\n", $3*100/$2, "%" }')
-      swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
+      #swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
+      # Fixed for non-english system can't detect the SWAP. 
+      swap_info=$(LANGUAGE=en_US.UTF-8;free | awk '/Swap/ {print $2}' | convertsize)
   fi
 
   printf "${cbwhite}%-48s%s\n" "Server Insight" "Hardware Information"
@@ -683,6 +687,7 @@ awk -F'="|" ?' -v OFS='|' '
     }
 '
   } > "$lsblkfifo" &
+
 while IFS='|' read -r devname devsize devmp devtype; do
   [ -z "$devtype" ] && devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
   if [ "$(echo "$disklimit > $devsize" | $bc)" -eq 1 ]; then
