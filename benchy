@@ -20,15 +20,17 @@ colordefiner() {
       die "Continuing without color as your terminal does not support 256 colors"
     else
       if [ -t 1 ]; then
+
         # Non bold
-        cred=$(tput sgr0; tput setaf 1); clyl=$(tput sgr0; tput setaf 11)
-        cgreen=$(tput sgr0; tput setaf 2); cyan=$(tput sgr0; tput setaf 6)
-        cyellw=$(tput sgr0; tput setaf 215); csky=$(tput sgr0; tput setaf 14)
-        # Bold
-        cbwhite=$(tput bold; tput setaf 7); cblgreen=$(tput bold; tput setaf 121)
-        cbgreen=$(tput bold; tput setaf 2); cbyan=$(tput bold; tput setaf 6)
-        cbyellw=$(tput bold; tput setaf 11); cbsky=$(tput bold; tput setaf 14)
-        cblsky=$(tput bold; tput setaf 159)
+	cred=$(tput sgr0; tput setaf 1 0 0 2>/dev/null); clyl=$(tput sgr0; tput setaf 11 0 0 2>/dev/null)
+	cgreen=$(tput sgr0; tput setaf 2 0 0 2>/dev/null); cyan=$(tput sgr0; tput setaf 6 0 0 2>/dev/null)
+	cyellw=$(tput sgr0; tput setaf 215 0 0 2>/dev/null); csky=$(tput sgr0; tput setaf 14 0 0 2>/dev/null)
+	# Bold
+	cbwhite=$(tput bold; tput setaf 7 0 0 2>/dev/null); cblgreen=$(tput bold; tput setaf 121 0 0 2>/dev/null);
+	cbgreen=$(tput bold; tput setaf 2 0 0 2>/dev/null); cbyan=$(tput bold; tput setaf 6 0 0 2>/dev/null);
+	cbyellw=$(tput bold; tput setaf 11 0 0 2>/dev/null); cbsky=$(tput bold; tput setaf 14 0 0 2>/dev/null);
+	cblsky=$(tput bold; tput setaf 159 0 0 2>/dev/null)
+
         # Reset color
         creset=$(tput sgr0)
       else
