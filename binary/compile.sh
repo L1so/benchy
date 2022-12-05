@@ -71,9 +71,9 @@ if [ "$is_fio" = "yes" ]; then
   cd ./libaio-0.3.113 && CC=$c_compiler ENABLE_SHARED=0 LDFLAGS="-static" make prefix=/hbb_exe install
   #2 of 2
   cd $tmpdir
-  curl -Lo $tmpdir/fio.tar.gz https://git.kernel.org/pub/scm/linux/kernel/git/axboe/fio.git/snapshot/fio-3.32.tar.gz
+  curl -Lo $tmpdir/fio.tar.gz https://git.kernel.org/pub/scm/linux/kernel/git/axboe/fio.git/snapshot/fio-3.33.tar.gz
   tar -xzf $tmpdir/fio.tar.gz -C $tmpdir
-  cd ./fio-3.32 && \
+  cd ./fio-3.33 && \
   ./configure \
   --cc=$c_compiler \
   --build-static \
@@ -82,9 +82,9 @@ if [ "$is_fio" = "yes" ]; then
 fi
 if [ "$is_iperf" = "yes" ]; then
   # Download iperf3
-  curl -Lo $tmpdir/iperf.tar.gz https://downloads.es.net/pub/iperf/iperf-3.11.tar.gz
+  curl -Lo $tmpdir/iperf.tar.gz https://downloads.es.net/pub/iperf/iperf-3.12.tar.gz
   tar -xzf $tmpdir/iperf.tar.gz -C $tmpdir
-  cd $tmpdir/iperf-3.11 && \
+  cd $tmpdir/iperf-3.12 && \
   CC=$c_compiler LDFLAGS="-static" ./configure --enable-static-bin --disable-shared --without-openssl --disable-profiling --build x86_64-pc-linux-gnu --host $type && make
   cp src/iperf3 /tmp/
 fi
@@ -141,7 +141,7 @@ fi
 
 # Libcheck
 [ -x "/tmp/fio" ] && libcheck /tmp/fio && cp /tmp/fio /io/bin/fio/fio_$type && rm -f /tmp/fio
-[ -x "/tmp/iperf3" ] && libcheck /tmp/iperf3 && cp /tmp/iperf3 /io/iperf_$type && rm -f /tmp/iperf3
+[ -x "/tmp/iperf3" ] && libcheck /tmp/iperf3 && cp /tmp/iperf3 /io/bin/iperf_$type && rm -f /tmp/iperf3
 [ -x "/tmp/bc" ] && libcheck /tmp/bc && cp /tmp/bc /io/bin/bc/bc_$type && rm -f /tmp/bc
 [ -x "/tmp/lsblk" ] && libcheck /tmp/lsblk && cp /tmp/lsblk /io/bin/lsblk/lsblk_$type && rm -f /tmp/lsblk
 [ -x "/tmp/jq" ] && libcheck /tmp/jq && cp /tmp/jq /io/bin/jq/jq_$type && rm -f /tmp/jq

@@ -14,21 +14,21 @@ colordefiner() {
   else
     if ! is_installed perl; then
       disable_color
-      die "Continuing without color as perl is not found"
+      die "Continuing without color as perl is not found"; return 1
     elif [ "$(tput colors)" -ne "256" ]; then
       disable_color
-      die "Continuing without color as your terminal does not support 256 colors"
+      die "Continuing without color as your terminal does not support 256 colors"; return 1
     else
       if [ -t 1 ]; then
         # Non bold
-        cred=$(tput sgr0; tput setaf 1); clyl=$(tput sgr0; tput setaf 11)
-        cgreen=$(tput sgr0; tput setaf 2); cyan=$(tput sgr0; tput setaf 6)
-        cyellw=$(tput sgr0; tput setaf 215); csky=$(tput sgr0; tput setaf 14)
+        cred=$(tput sgr0; tput setaf 1 ${is_bsd:+0 0}); clyl=$(tput sgr0; tput setaf 11 ${is_bsd:+0 0})
+        cgreen=$(tput sgr0; tput setaf 2 ${is_bsd:+0 0}); cyan=$(tput sgr0; tput setaf 6 ${is_bsd:+0 0})
+        cyellw=$(tput sgr0; tput setaf 215 ${is_bsd:+0 0}); csky=$(tput sgr0; tput setaf 14 ${is_bsd:+0 0})
         # Bold
-        cbwhite=$(tput bold; tput setaf 7); cblgreen=$(tput bold; tput setaf 121)
-        cbgreen=$(tput bold; tput setaf 2); cbyan=$(tput bold; tput setaf 6)
-        cbyellw=$(tput bold; tput setaf 11); cbsky=$(tput bold; tput setaf 14)
-        cblsky=$(tput bold; tput setaf 159)
+        cbwhite=$(tput bold; tput setaf 7 ${is_bsd:+0 0}); cblgreen=$(tput bold; tput setaf 121 ${is_bsd:+0 0})
+        cbgreen=$(tput bold; tput setaf 2 ${is_bsd:+0 0}); cbyan=$(tput bold; tput setaf 6 ${is_bsd:+0 0})
+        cbyellw=$(tput bold; tput setaf 11 ${is_bsd:+0 0}); cbsky=$(tput bold; tput setaf 14 ${is_bsd:+0 0})
+        cblsky=$(tput bold; tput setaf 159 ${is_bsd:+0 0})
         # Reset color
         creset=$(tput sgr0)
       else
@@ -40,7 +40,7 @@ colordefiner() {
 anstripper() { perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g' ; }
 anstripper_ng() {
   if [ "$parseit" = "true" ] && [ "$docolor" = "true" ]; then
-    $decolorize $outputdir/benchy.log > /tmp/temporary_benchy.log && mv /tmp/temporary_benchy.log $outputdir/benchy.log
+    $decolorize $outputdir/benchy.log > /tmp/temporary_benchy.log && mv /tmp/temporary_benchy.log $outputdir/benchy.log 2>/dev/null
   fi
 }
 currentVersion="v2.4"; rev_date="30 Nov 2022"
@@ -84,7 +84,7 @@ Options:
 EOT
 }
 is_installed() { command -v $1 >/dev/null 2>&1; }
-die() { printf "%s\n" "$@" >&2; return 1; }
+die() { printf "%s\n" "$@" >&2; }
 say() {
   if [ "$arg_colorize" = "false" ]; then
     printf "%s" "$@"
@@ -94,7 +94,7 @@ say() {
 }
 case $(uname | tr '[:upper:]' '[:lower:]') in
   linux*) osv="linux";;
-  *bsd*) osv="bsd";;
+  *bsd*) osv="bsd"; is_bsd="yes";;
   *) die "OS Not supported"; exit 1;;
 esac
 # Prioritize curl over wget
@@ -427,7 +427,7 @@ binarycheck() {
     esac
 
     # Skipping download binary if os was openbsd
-    if [ "$osv" = "bsd" ]; then
+    if [ -n "$is_bsd" ]; then
 			say "Skipping downloading binary"
 			overline
     fi
@@ -518,32 +518,37 @@ user_arch() {
 sysinfo() {
   # System Information
   # OS
-    if [ -f "/etc/os-release" ]; then
-	. "/etc/os-release"
-	currentOS="${PRETTY_NAME}"
-	kernelver=$(uname -r)
-       else
-	   currentOS=$(uname)
-	   kernelver=$(uname -r)
+  if [ -f "/etc/os-release" ]; then
+  	. "/etc/os-release"
+  	currentOS="${PRETTY_NAME}"
+  	kernelver=$(uname -r)
+  else
+    if [ -n "$is_bsd" ]; then
+      currentOS=$(uname -rs)
+      kernelver=$(uname -v)
+    else
+      currentOS=$(uname)
+      kernelver=$(uname -r)
     fi
+  fi
   checkmark=$(printf "${cgreen}\342\234\224")
   crossmark=$(printf "${cred}\342\235\214")
   # Uptime
-  if [ "$osv" = "bsd" ]; then
-      s=$(sysctl -n kern.boottime)
-      s=${s#*=}
-      s=${s%,*}
-      s=$(($(date +%s) - s))
-      d=$((s / 60 / 60 / 24))
-      h=$((s / 60 / 60 % 24))
-      m=$((s / 60 % 60))
+  if [ -n "$is_bsd" ]; then
+    s=$(sysctl -n kern.boottime)
+    s=${s#*=}
+    s=${s%,*}
+    s=$(($(date +%s) - s))
+    d=$((s / 60 / 60 / 24))
+    h=$((s / 60 / 60 % 24))
+    m=$((s / 60 % 60))
 
-      # Only append days, hours and minutes if they're non-zero.
-      case "$d" in ([!0]*) uptime_now="${uptime_now}${d} days "; esac
-      case "$h" in ([!0]*) uptime_now="${uptime_now}${h} hrs "; esac
-      case "$m" in ([!0]*) uptime_now="${uptime_now}${m} mins"; esac
+    # Only append days, hours and minutes if they're non-zero.
+    case "$d" in ([!0]*) uptime_now="${uptime_now}${d} days "; esac
+    case "$h" in ([!0]*) uptime_now="${uptime_now}${h} hrs "; esac
+    case "$m" in ([!0]*) uptime_now="${uptime_now}${m} mins"; esac
   else
-      uptime_now=$(awk '{print int($1/86400)" days, "int($1%86400/3600)" hrs, "int(($1%3600)/60)" mins, "int($1%60)" secs"}' /proc/uptime)
+    uptime_now=$(awk '{print int($1/86400)" days, "int($1%86400/3600)" hrs, "int(($1%3600)/60)" mins, "int($1%60)" secs"}' /proc/uptime)
   fi
   # Location
   country=$(grep -o '"'"country"'": *"[^"]*' "$ipformation" | grep -o '[^"]*$')
@@ -568,18 +573,35 @@ sysinfo() {
   if is_installed lscpu && { lscpu 2>&1 | grep -q -- 'Model name' ; }; then
     cpu_model=$(lscpu | awk -F: '/Model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' | sed 's/\(.\{41\}\).*/\1/')
   else
-      if [ "$osv" = "bsd" ]; then
+      if [ -n "$is_bsd" ]; then
 					cpu_model=$(sysctl -n hw.model)
       else
 					cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' /proc/cpuinfo | sed 's/\(.\{41\}\).*/\1/')
       fi
   fi
-  [ "$osv" = "bsd" ] && cpu_freq=$(printf "@ %s Mhz" $(sysctl -n hw.cpuspeed 2>/dev/null)) || { cpu_freq=$(awk 'NR==1{ print "@ "($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null || awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("@ %s MHz\n", $2); exit}}' /proc/cpuinfo); }
+  # CPU Frequency
+  cpu_freq=$(
+  awk 'NR==1{ print "@ "($1 / 1000) " MHz" }' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null ||
+  awk -F: '/cpu MHz/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); printf("@ %s MHz\n", $2); exit}}' /proc/cpuinfo 2>/dev/null ||
+  printf "@ %s Mhz" $(sysctl -n hw.cpuspeed 2>/dev/null)
+  )
+
+  # CPU Core Count
   cpu_core=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
-  { if grep -q -m 1 aes /proc/cpuinfo; then cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; else cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; fi ; } ||
-  { if dmesg 2>/dev/null | grep -qE 'AES'; then cpu_aes="$checkmark Enabled" && cpu_aes_j="true"; else cpu_aes="$crossmark Disabled" && cpu_aes_j="false"; fi ; }
-  { if grep -q -m 1 'vmx\|svm' /proc/cpuinfo; then cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; else cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; fi ; } ||
-  { if dmesg 2>/dev/null | grep -qE '(VMX|SVM)'; then cpu_virt="$checkmark Enabled" && cpu_virt_j="true"; else cpu_virt="$crossmark Disabled" && cpu_virt_j="false"; fi ; }
+
+  # AES
+  if { dmesg 2>/dev/null | grep -qE 'AES' ; } || grep -q -m 1 aes /proc/cpuinfo 2>/dev/null; then
+    cpu_aes="$checkmark Enabled" && cpu_aes_j="true"
+  else
+    cpu_aes="$crossmark Disabled" && cpu_aes_j="false"
+  fi
+
+  # VMX/Virt
+  if { dmesg 2>/dev/null | grep -qE '(VMX|SVM)' ; } || grep -q -m 1 'vmx\|svm' /proc/cpuinfo 2>/dev/null; then
+    cpu_virt="$checkmark Enabled" && cpu_virt_j="true"
+  else
+    cpu_virt="$crossmark Disabled" && cpu_virt_j="false"
+  fi
   virt_type="$(print_virtualization)"
   virt_type="${virt_type:-none}"
 
@@ -588,17 +610,16 @@ sysinfo() {
   disk_info=$(echo "$df_output" | awk 'NR==2{ print $2 }' | convertsize)
   disk_usage=$(echo "$df_output"| awk 'NR==2{ print $3 }'| convertsize)
   disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
-  if [ "$osv" = "bsd" ]; then
+  if [ -n "$is_bsd" ]; then
       mem_info=$(sysctl -n hw.physmem)
-      mem_usage=$(vmstat | tail -n1 | awk '{print ($3+0)}')
-      mem_usage=$(echo "$mem_usage * 1024" | $bc)
-      mem_free=$(echo "$mem_info-$mem_usage" | $bc)
+      mem_usage=$(vmstat | awk 'END{print ($3+0) * 1024}')
+      mem_free=$((mem_info-mem_usage))
       mem_percentage=$(echo "$mem_usage*1024*100/$mem_free" | $bc)
-      swap_info=$(pstat -s | awk '/dev/ {print $2}' | convertsize)
+      swap_info=$(pstat -s | awk '/dev/{print $2}' | convertsize)
 
-      mem_info=$(echo "$mem_info" | convertsize)
-      mem_usage=$(echo "$mem_usage" | $bc | convertsize)
-      mem_percentage=$(printf "%s %%" "$mem_percentage")
+      mem_info=$(echo "$((mem_info/1000))" | convertsize)
+      mem_usage=$(echo "$mem_usage" | convertsize)
+      mem_percentage=$(printf "%s%%" "$mem_percentage")
   else
       mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
       mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB\n", $3/1024^3 }')
@@ -653,7 +674,7 @@ SYSJSON
   fi
 }
 disk_test() {
-  { [ "$arg_skip_disk" = "true" ] || [ "$osv" = "bsd" ]; } && return 1
+  { [ "$arg_skip_disk" = "true" ] || [ -n "$is_bsd" ]; } && return 1
   lsblkfifo="${benchy_path}/lsblk.fifo"; fiofile="${benchy_path}/fio.log"; fiores="${benchy_path}/fio_res.log"
   [ -p "$lsblkfifo" ] || mkfifo -m 600 "$lsblkfifo"
   contain_home=$(df $HOME | awk 'NR==2{ print $NF }') # Check which partition contain $HOME directory
@@ -902,7 +923,7 @@ EOF
 }
 cshuf() {
   dasnumber="$1"
-  if [ "$osv" = "bsd" ]; then
+  if [ -n "$is_bsd" ]; then
     jot -w %i -r 1 "${dasnumber%-*}" "$((${dasnumber#*-}+1))"
   else
     shuf -i "$dasnumber" -n 1
@@ -1079,12 +1100,13 @@ SPTJSON
 }
 geekbench_test() {
   # Skip geekbench on input argument
-  [ "$osv" = "bsd" ] && die "Geekbench doesnt support *BSD, exiting test.."
   [ "$arg_skip_gb" = "true" ] && return 1
+  # Skip geekbench on *BSD machine
+  [ -n "$is_bsd" ] && die "Geekbench doesn't support *BSD, exiting test.." && return 1
   # Exit if ipv6 only
-  [ "$ipv4_status" = "false" ] && die "Geekbench doesn't work over ipv6, exiting test.."
+  [ "$ipv4_status" = "false" ] && die "Geekbench doesn't work over ipv6, exiting test.." && return 1
   # Check if machine was musl library
-  if ldd /bin/ls | grep -q 'musl'; then die "Geekbench does not support musl library, exiting test.."; fi
+  if ldd /bin/ls | grep -q 'musl'; then die "Geekbench does not support musl library, exiting test.." && return 1; fi
   print_space 1
   if [ "$gb_version" -eq 5 ]; then
     # Geekbench 5
@@ -1207,7 +1229,7 @@ GBJSON
       fi
       rm -f "$gbfile" "$gbfile_4" "$gbfile_5"
     else
-      die "Geekbench $gb_version run failed, please retry again"
+      die "Geekbench $gb_version run failed, please retry again"; return 1
     fi
   } | parse_output
 }
