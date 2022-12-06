@@ -43,7 +43,7 @@ anstripper_ng() {
     $decolorize $outputdir/benchy.log > /tmp/temporary_benchy.log && mv /tmp/temporary_benchy.log $outputdir/benchy.log 2>/dev/null
   fi
 }
-currentVersion="v2.4"; rev_date="30 Nov 2022"
+currentVersion="v2.4"; rev_date="6 Dec 2022"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -606,10 +606,12 @@ sysinfo() {
   virt_type="${virt_type:-none}"
 
   # Disk & Memory Usage
-  df_output=$(df -k /)
-  disk_info=$(echo "$df_output" | awk 'NR==2{ print $2 }' | convertsize)
-  disk_usage=$(echo "$df_output"| awk 'NR==2{ print $3 }'| convertsize)
-  disk_percentage=$(echo "$df_output" | awk 'NR==2{ print $5 }')
+  # Example output: 1K-blocks    Used Available Use%
+  # Example output: 30929256 15854720 13485448 27
+  df_output=$(df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^udev|\/docker\/|^none)/{ a+=$2; b+=$3; c+=$4; d+=$5; cline++ }END{ printf("%s %s %s %.0f", a, b, c, (d/(cline*100))*100); }')
+  disk_info=$(echo "$df_output" | awk '{ print $1 }' | convertsize)
+  disk_usage=$(echo "$df_output"| awk '{ print $2 }'| convertsize)
+  disk_percentage=$(echo "$df_output" | awk '{ print $4"%" }')
   if [ -n "$is_bsd" ]; then
       mem_info=$(sysctl -n hw.physmem)
       mem_usage=$(vmstat | awk 'END{print ($3+0) * 1024}')
