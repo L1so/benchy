@@ -202,7 +202,7 @@ if [ -z "$arg_json" ] && { [ -n "$arg_output_file" ] || [ -n "$outputdir" ]; } |
 # Source https://gist.github.com/Akianonymus/25cfa570cb66821ab61846ceb0f9ca07
 convertsize() { awk '{ split( "KiB MiB GiB TiB", v, " "); x=$1; if (x) p=int(log(x)/log(1024)); else p == 0; printf("%0.1f %s\n" , x/1024^p, v[p+1] ); }'; }
 core_pkg() {
-  is_installed locale && export LC_ALL=$(locale -a|grep -ix 'c.utf-\?8' || echo C)
+  is_installed locale && export LC_ALL=C
   for pkg in tput tar; do
     if ! is_installed $pkg; then
       die "$pkg missing from your system"
