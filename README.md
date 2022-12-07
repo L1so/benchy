@@ -69,6 +69,7 @@ Options:
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
   -r, --region=ARG        Specify region to bench network (Valid ARG: as, af, eu, na, sa, oc, mix)
+  -f, --disk=ARG          Specify what disk to bench (e.g. /dev/nvme0np3 or /dev/sda3)
   -s, --speedtest         Prefer speedtest in place of iperf3
   -i, --show-ip           Display server public IP address
   -p, --parse-only        Only parse basic information (equal to -ndg)
@@ -93,6 +94,7 @@ Options:
 * Bench multiple disk at one time
 * Ability to pick iperf region
 * JSON Output
+* Colored Output
 
 ## Portability
 As of [fca1b99](https://github.com/L1so/benchy/commit/fca1b99b8fabeb563a8e6a628b82b4634e03b0f8), I have removed all [bashism](https://mywiki.wooledge.org/Bashism) from Benchy code and replace them with their POSIX counterpart. This of course to ensure portability between different kind of shells.

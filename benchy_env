@@ -13,6 +13,9 @@
 # Replace ARG with one of following: yes, no, force
 # arg_colorize="ARG" # Equal to -c ARG or --color=ARG
 
+# Bench multiple drives
+# disk_list="ARG" # Equal to -f ARG or --disk=ARG
+
 # Enable region based network test, otherwise will use mixed source
 # arg_use_region="true" # Equal to -m
 
