@@ -38,12 +38,37 @@ colordefiner() {
   fi
 }
 anstripper() { perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g' ; }
+picklargestpart() { awk '{print substr($1, 1, match($1, "[[:digit:]]") - 1), $0}' | sort -k1,1 -k3,3nr | awk 'id!=$1{ print; id = $1}' | cut -d ' ' -f2- ; }
 anstripper_ng() {
   if [ "$parseit" = "true" ] && [ "$docolor" = "true" ]; then
     $decolorize $outputdir/benchy.log > /tmp/temporary_benchy.log && mv /tmp/temporary_benchy.log $outputdir/benchy.log 2>/dev/null
   fi
 }
-currentVersion="v2.4"; rev_date="6 Dec 2022"
+diskify() {
+  case "$disk_list" in
+    *,*)
+    disk_list=$(echo "$disk_list" | tr -d '[:space:]' | tr ',' ' ')
+    for disk in $disk_list; do
+      if [ -b "$disk" ]; then
+        df -k "$disk" 2>/dev/null | awk 'NR>1{ printf("%s\t%s\t%s\n", $1, $2, $NF) }' >> $disk_tmp
+      else
+        >&2 echo "$disk is invalid disk"; rm -f $disk_tmp; exit 1
+      fi
+    done
+      ;;
+    "all")
+    df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^dev|^udev|\/docker\/|^none)/{ printf("%s\t%s\t%s\n", $1, $2, $NF) }' | picklargestpart >> $disk_tmp
+      ;;
+    *)
+    if [ -b "$disk_list" ]; then
+      df -k "$disk_list" 2>/dev/null | awk 'NR>1{ printf("%s\t%s\t%s\n", $1, $2, $NF) }' >> $disk_tmp
+    else
+      >&2 echo "$disk_list is invalid disk"; rm -f $disk_tmp; exit 1
+    fi
+      ;;
+  esac
+}
+currentVersion="v2.5"; rev_date="7 Dec 2022"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -76,6 +101,7 @@ Options:
   -d, --skip-disk         Skip fio disk benchmark test
   -g, --skip-gb           Skip geekbench 5 test
   -r, --region=ARG        Specify region to bench network (Valid ARG: as, af, eu, na, sa, oc, mix)
+  -f, --disk=ARG          Specify what disk to bench (e.g. /dev/nvme0np3 or /dev/sda3)
   -s, --speedtest         Prefer speedtest in place of iperf3
   -i, --show-ip           Display server public IP address
   -p, --parse-only        Only parse basic information (equal to -ndg)
@@ -108,6 +134,7 @@ else
   die "Neither wget nor curl is exist" "Please install it first"
   exit 1
 fi
+disk_tmp="/tmp/benchy_df.log"
 # BEGIN OPTION PARSING (source https://stackoverflow.com/a/62616466/12289283)
 usage_error () { printf "%s\n%s\n" "$1" "Try 'benchy --help' to view available option" >&2; exit 2; }
 assert_argument () { { test "$1" != "$endofline" && case "$1" in -*) >&2 printf "%s\n" "$opt: Illegal input parameter ($1)"; exit 2;; esac; } || { printf "%s\n" "$2: requires an argument" >&2 && exit 2 ; }; }
@@ -167,6 +194,12 @@ if [ "$#" != 0 ]; then
       esac
       shift
       ;;
+      -f|--disk)
+      assert_argument "$1" "$opt"
+      disk_list="$1"
+      diskify
+      shift
+      ;;
       -o|--output)
       arg_output_file="true"; outputdir=$1
       case "$outputdir" in
@@ -191,6 +224,7 @@ fi
 if [ -f ${HOME}/.benchy_opt ] && [ -n "$arg_use_env" ]; then
   . ${HOME}/.benchy_opt
   [ -n "$directory" ] && outputdir=$directory
+  [ -n "$disk_list" ] && diskify
 fi
 [ -n "$arg_json" ] && logext="json" || logext="log"
 if [ -n "$arg_output_file" ]; then outputdir="${outputdir:-${PWD}}"; test -f "${outputdir}/benchy.${logext}" && rm -f "${outputdir}/benchy.${logext}"; fi
@@ -380,7 +414,6 @@ binarycheck() {
   speedtest_path=$benchy_path/speedtest
   geekbench_path="${benchy_path}/gb${gb_version}"
   bc_path=$benchy_path/bc
-  lsblk_path=$benchy_path/lsblk
   jq_path=$benchy_path/jq
   ipformation=$benchy_path/ipformation.json
   mainjson=$benchy_path/main.json
@@ -394,12 +427,6 @@ binarycheck() {
   [ -z "$arg_prefer_speedtest" ] && is_installed iperf3 && iperf="iperf3" || iperf="$iperf_path/iperf3"
   # bc binary
   is_installed bc && bc="bc" || bc="$bc_path/bc"
-  # lsblk binary (from util-linux) + check if -p option supported
-  if is_installed lsblk && { lsblk --help 2>&1 | grep -q -- '-p,' ; }; then
-    lsblk="lsblk"
-  else
-    lsblk="$lsblk_path/lsblk"
-  fi
   # jq binary
   is_installed jq && jq="jq" || jq="$jq_path/jq"
   # Speedtest binary
@@ -455,12 +482,6 @@ binarycheck() {
       file_grabber "${gitlink}/bc/bc_${arch}" "$bc_path/bc"
       [ $? -eq 0 ] && chmod u+x $bc_path/bc
     fi
-    # Download lsblk if not exist
-    if [ "$lsblk" != "lsblk" ] && [ ! -f "$lsblk_path/lsblk" ]; then
-      mkdir -p $lsblk_path
-      file_grabber "${gitlink}/lsblk/lsblk_${arch}" "$lsblk_path/lsblk"
-      [ $? -eq 0 ] && chmod u+x $lsblk_path/lsblk
-    fi
     # Download jq if not exist
     if [ "$jq" != "jq" ] && [ ! -f "$jq_path/jq" ]; then
       mkdir -p $jq_path
@@ -478,7 +499,7 @@ binarycheck() {
 user_arch() {
   # Determine what type of architecture this server runs off
   # Most commonly would be 64 bit
-  arch=$(uname -m); disklimit="2147483648" # 2048 MB
+  arch=$(uname -m); disklimit="2048000" # 2048 MB
   case "$arch" in
     *x86_64*|*amd64*)
     arch="x86_64"
@@ -506,7 +527,7 @@ user_arch() {
       *64*) arch="aarch64";;
       *) arch="armhf";;
     esac
-    fio_size="512M"; disklimit="536870912"
+    fio_size="512M"; disklimit="512000"
     gb_version=5
     gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.4-LinuxARMPreview.tar.gz"
     ;;
@@ -608,10 +629,11 @@ sysinfo() {
   # Disk & Memory Usage
   # Example output: 1K-blocks    Used Available Use%
   # Example output: 30929256 15854720 13485448 27
-  df_output=$(df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^dev|^udev|\/docker\/|^none)/{ total+=$2; used+=$3; avai+=$4 }END{ printf("%s %s %s %.0f", total, used, avai, (used/total)*100); }')
+  df_output=$(df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^dev|^udev|\/docker\/|^none)/{ total+=$2; used+=$3; avai+=$4; cline++ }END{ printf("%s %s %s %.0f %s", total, used, avai, (used/total)*100, cline); }')
   disk_info=$(echo "$df_output" | awk '{ print $1 }' | convertsize)
   disk_usage=$(echo "$df_output"| awk '{ print $2 }'| convertsize)
   disk_percentage=$(echo "$df_output" | awk '{ print $4"%" }')
+  disk_count=$(echo "$df_output" | awk '{ print $NF }')
   if [ -n "$is_bsd" ]; then
       mem_info=$(sysctl -n hw.physmem)
       mem_usage=$(vmstat | awk 'END{print ($3+0) * 1024}')
@@ -636,7 +658,7 @@ sysinfo() {
   echo
   printf "${cbwhite}%-48s%s\n" "Disk & Memory Usage" "Network Information"
   printf "${cbyan}%-48s%s\n" "---------------------" "---------------------"
-  printf "${cbwhite}%-10s : ${csky}%-35s${cbwhite}%-11s : ${csky}%-10s\n" "Disk" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$(printf "%s" "$isp" | sed 's/\(.\{41\}\).*/\1../')" \
+  printf "${cbwhite}%-10s : ${csky}%-35s${cbwhite}%-11s : ${csky}%-10s\n" "Disk ($disk_count)" "$disk_info" "ASN" "$asn" "Disk Usage" "$disk_usage ($disk_percentage Used)" "ISP" "$(printf "%s" "$isp" | sed 's/\(.\{41\}\).*/\1../')" \
   "Mem" "$mem_info" "IPv4" "$ipv4_string" "Mem Usage" "$mem_usage ($mem_percentage Used)" "IPv6" "$ipv6_string"
 
   # Parse to JSON
@@ -678,36 +700,18 @@ SYSJSON
 disk_test() {
   { [ "$arg_skip_disk" = "true" ] || [ -n "$is_bsd" ]; } && return 1
   lsblkfifo="${benchy_path}/lsblk.fifo"; fiofile="${benchy_path}/fio.log"; fiores="${benchy_path}/fio_res.log"
-  [ -p "$lsblkfifo" ] || mkfifo -m 600 "$lsblkfifo"
+  test -p "$lsblkfifo" || mkfifo -m 600 "$lsblkfifo"
   contain_home=$(df $HOME | awk 'NR==2{ print $NF }') # Check which partition contain $HOME directory
   print_space 1
   {
-    $lsblk -nPpbo KNAME,SIZE,PKNAME,MOUNTPOINT,FSTYPE |
-awk -F'="|" ?' -v OFS='|' '
-    {
-        kname = $2
-        size = $4
-        pkname = $6
-        mountpoint = $8
-        fstype = $10
-    }
-    pkname !~ "^/" { next }
-    mountpoint !~ "^/" { next }
-    seen[kname]++ { next }
-    size > sizes[pkname] {
-        knames[pkname] = kname
-        sizes[pkname] = size
-        mountpoints[pkname] = mountpoint
-        fstypes[pkname] = fstype
-    }
-    END {
-        for (pkname in knames)
-            print knames[pkname], sizes[pkname], mountpoints[pkname], fstypes[pkname]
-    }
-'
+    if [ -f $disk_tmp ]; then
+      cat $disk_tmp
+    else
+      df -k $HOME 2>/dev/null | awk 'NR>1{ printf("%s\t%s\t%s\n", $1, $2, $NF) }'
+    fi
   } > "$lsblkfifo" &
-while IFS='|' read -r devname devsize devmp devtype; do
-  [ -z "$devtype" ] && devtype=$(df -T $devmp | awk 'NR==2{ print $2 }')
+while read -r devname devsize devmp; do
+  devtype=$(mount | awk -v mp="$devname" '$1 ~ mp { print $5; exit }')
   if [ "$(echo "$disklimit > $devsize" | $bc)" -eq 1 ]; then
     printf "${cyan}%s${creset}\n" "Insufficient storage on $devname" | parse_output
     continue
@@ -763,6 +767,7 @@ while IFS='|' read -r devname devsize devmp devtype; do
     overline
   done
   # Build fio output
+  [ -n "$arg_json" ] && { $jq --arg dvn $devname '.disk_bench[$dvn] = {}' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson" ; }
   {
     printf "${cbwhite}Disk Performance Check (${cbgreen}$devtype${cbwhite} on ${cbyellw}$devname${cbwhite}) ${cbsky}(R: Read, W: Write, T: Total)${creset}\n"
     printf "${cbwhite}+%75s+\n" | tr ' ' '-'
@@ -772,7 +777,7 @@ while IFS='|' read -r devname devsize devmp devtype; do
       # Loop over variable
       printf "${cbwhite}| ${cyellw}%-4s | %-11s | %-11s | %-11s | %-6s | %-6s | %-6s ${cbwhite}|${creset}\n" "$blocksize" "$read" "$write" "$total" "$read_iops" "$write_iops" "$total_iops"
       if [ -n "$arg_json" ]; then
-        cat <<DISKJSON | $jq --argjson dj "$(cat)" '.disk_bench += $dj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+        cat <<DISKJSON | $jq --arg dn "$devname" --argjson dj "$(cat)" '.disk_bench[$dn] += $dj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
         {
           "${blocksize}_bs": {
             "read": "$read",
@@ -787,11 +792,11 @@ DISKJSON
       fi
     done < "$fiores"
     printf "${cbwhite}+%75s+${creset}\n" | tr ' ' '-'
-    truncate -s 0 $fiores
+    > $fiores
     rm -f -- $mountpoint/test.fio
   } | parse_output
 done < "$lsblkfifo"
-rm -f "$lsblkfifo" "$fiores" "$fiofile"
+rm -f "$lsblkfifo" "$fiores" "$fiofile" "$disk_tmp"
 }
 
 netlist() {
