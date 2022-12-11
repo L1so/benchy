@@ -2,8 +2,8 @@
 
 Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script).
 ## Patron List
-* [ReadyDedis](https://readydedis.com) provide me VM with multiple disk to fully accomodate multiple disk bench.
-* [jugganuts](https://lowendtalk.com/profile/jugganuts) helps me fund the domain name https://benchy.pw.
+* [ReadyDedis](https://readydedis.com) provide a VM with multiple disk to fully accommodate multiple disk bench.
+* [jugganuts](https://lowendtalk.com/profile/jugganuts) helps fund the domain name https://benchy.pw.
 
 ## Table of Contents
 - [Usage](https://github.com/L1so/benchy#usage)
