@@ -1,6 +1,9 @@
 # Benchy - Server Benchmarking Script
 
-Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script), some of Benchy code used same technique as YABS do.
+Benchy is a fork of MasonR's [Yet Another Bench Script (YABS)](https://github.com/masonr/yet-another-bench-script).
+## Patron List
+* [ReadyDedis](https://readydedis.com) provide me VM with multiple disk to fully accomodate multiple disk bench.
+* [jugganuts](https://lowendtalk.com/profile/jugganuts) helps me fund the domain name https://benchy.pw.
 
 ## Table of Contents
 - [Usage](https://github.com/L1so/benchy#usage)
@@ -30,7 +33,7 @@ Via curl.
 
 			benchy() { curl -Ls benchy.pw | sh -s -- "$@"; }
 2. Source the file then (e.g. `. ~/.bashrc` or `. ~/.bash_aliases`).
-3. You can now painlessly perform benchmark without typing long command. Be sure to check available option on [Supported Flag](https://github.com/L1so/benchy#supported-flag)
+3. Simply execute `benchy` as is-- probably with [option](https://github.com/L1so/benchy#supported-flag).
 ```bash
 	$ benchy -v
 	Version  : v2.4
@@ -38,20 +41,20 @@ Via curl.
 ```
 ### Environment Variable
 If you find yourself perform benchmark alot, you may find this feature useful. By default benchy will find if `.benchy_opt` exist on home directory, and will pick variable defined there.
-1. Download the template.
-	```
-	wget -qO- benchy.pw | sh -s -- -e
-	```
-	or
+1. [Download the template](https://github.com/L1so/benchy/blob/main/benchy_env).
 	```
 	wget -O $HOME/.benchy_opt benchy.pw/env
 	```
-2. [Uncomment any function that you wish to enable.](https://github.com/L1so/benchy/blob/main/benchy_env)
+	or
+	```
+	wget -qO- benchy.pw | sh -s -- -e
+	```
+2. Uncomment any variable you wish to enable.
 3. Run benchy with option `-u` or `--use-env`.
 	```
 	wget -qO- benchy.pw | sh -s -- -u
 	```
-	You will see `Found predefined option !` message in your screen.
+	You will see `Found predefined option !` message.
 ## Supported flag
 ```
 Usage: benchy [options]
@@ -97,7 +100,7 @@ Options:
 * Colored Output
 
 ## Portability
-As of [fca1b99](https://github.com/L1so/benchy/commit/fca1b99b8fabeb563a8e6a628b82b4634e03b0f8), I have removed all [bashism](https://mywiki.wooledge.org/Bashism) from Benchy code and replace them with their POSIX counterpart. This of course to ensure portability between different kind of shells.
+Below is list of shell which benchy has been tested on.
 
 |Shell|Status|
 |---|---|
@@ -110,7 +113,7 @@ As of [fca1b99](https://github.com/L1so/benchy/commit/fca1b99b8fabeb563a8e6a628b
 
 
 ## Requirement
-This section covers various Linux Distribution supported by benchy, each test conducted on clean LXC container.
+This section covers various Linux Distribution known to work, each test conducted on clean LXC container.
 
 | Distribution | Minimal Version |fio|iperf3|Geekbench|
 | --- | --- |---|---|---|
@@ -124,7 +127,7 @@ This section covers various Linux Distribution supported by benchy, each test co
 |openSUSE Leap|15.1|✔|✔|✔|
 |Arch Linux|2021.12.01|✔️|✔|✔|
 
-Benchy **may** also works on other distribution than previously stated. Be sure to report any issues that you found.
+**BSD* is not Linux, consequently benchy is not guarranted to work there.
 
 ## Example Output
 
