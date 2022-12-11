@@ -57,7 +57,7 @@ diskify() {
     done
       ;;
     "all")
-    df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^dev|^udev|\/docker\/|^none)/{ printf("%s\t%s\t%s\n", $1, $2, $NF) }' | picklargestpart >> $disk_tmp
+    df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^dev|^udev|\/docker\/|^none|\/boot\/)/{ printf("%s\t%s\t%s\n", $1, $2, $NF) }' | picklargestpart >> $disk_tmp
       ;;
     *)
     if [ -b "$disk_list" ]; then
@@ -629,7 +629,7 @@ sysinfo() {
   # Disk & Memory Usage
   # Example output: 1K-blocks    Used Available Use%
   # Example output: 30929256 15854720 13485448 27
-  df_output=$(df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^dev|^udev|\/docker\/|^none)/{ total+=$2; used+=$3; avai+=$4; cline++ }END{ printf("%s %s %s %.0f %s", total, used, avai, (used/total)*100, cline); }')
+  df_output=$(df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^dev|^udev|\/docker\/|^none|\/boot\/)/{ total+=$2; used+=$3; avai+=$4; cline++ }END{ printf("%s %s %s %.0f %s", total, used, avai, (used/total)*100, cline); }')
   disk_info=$(echo "$df_output" | awk '{ print $1 }' | convertsize)
   disk_usage=$(echo "$df_output"| awk '{ print $2 }'| convertsize)
   disk_percentage=$(echo "$df_output" | awk '{ print $4"%" }')
