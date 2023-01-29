@@ -1,5 +1,5 @@
 #!/bin/sh
-# Benchy V2.4
+# Benchy V2.6
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
@@ -68,7 +68,7 @@ diskify() {
       ;;
   esac
 }
-currentVersion="v2.5"; rev_date="7 Dec 2022"
+currentVersion="v2.6"; rev_date="29 Jan 2023"
 header_intro() {
   startTime=$(awk 'BEGIN {srand(); print srand()}')
   currentDate=$(date +"%d %b %Y %H:%M %Z")
@@ -512,7 +512,7 @@ user_arch() {
       gb_ddl_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
     else
       gb_version=5
-      gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.5-Linux.tar.gz"
+      gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.5.0-Linux.tar.gz"
     fi
     ;;
     *i?86*)
@@ -529,7 +529,7 @@ user_arch() {
     esac
     fio_size="512M"; disklimit="512000"
     gb_version=5
-    gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.4-LinuxARMPreview.tar.gz"
+    gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.5.0-LinuxARMPreview.tar.gz"
     ;;
     *) die "Architecture not found"; exit 1;;
   esac
@@ -1133,7 +1133,7 @@ geekbench_test() {
     for gbv in 4 5; do
       gbpath="${benchy_path}/gb${gbv}"
       if [ ! -f "${benchy_path}/gb${gbv}/geekbench${gbv}" ]; then
-        [ "$gbv" -eq 5 ] && gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.4.5-Linux.tar.gz" \
+        [ "$gbv" -eq 5 ] && gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.5.0-Linux.tar.gz" \
         || gb_ddl_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
         printf "${cyan}%s${creset}\n" "Downloading Geekbench $gbv, this may take a several minute..."
         file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $gbpath \
