@@ -597,7 +597,7 @@ sysinfo() {
       if [ -n "$is_bsd" ]; then
 					cpu_model=$(sysctl -n hw.model)
       else
-					cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' /proc/cpuinfo | sed 's/\(.\{41\}\).*/\1/')
+					cpu_model=$(awk -F: '/model name/{ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}}' /proc/cpuinfo | sed 's/\(.\{41\}\).*/\1/' | cut -d @ -f1 | tr -s ' ')
       fi
   fi
   # CPU Frequency
