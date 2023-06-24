@@ -93,8 +93,9 @@ Options:
   -e, --grab-env          Pull benchy environmental file
   -u, --use-env           Use environmental file in place of regular option
   -k, --keep-file         Keep benchy related files after successful run (default: Remove)
-  -4, --geekbench4        Utilize ONLY geekbench 4 instead of 5
-  -q, --geekbench         Utilize both geekbench 4 and 5
+  -4, --geekbench4        Utilize ONLY geekbench 4 instead of 6
+  -5, --geekbench5        Utilize ONLY geekbench 5 instead of 6
+  -1, --geekbench         Utilize both geekbench 5 and 6
   -j, --json              Store benchy result as json
   -m, --region            Enable region based network test, otherwise will use mixed source
   -n, --skip-network      Skip network measurement test
@@ -145,7 +146,8 @@ if [ "$#" != 0 ]; then
     case "$opt" in
       -k|--keep-file) arg_keep_file="true";;
       -4|--geekbench4) arg_use_gb4="true";;
-      -q|--geekbench) arg_use_gb45="true";;
+      -5|--geekbench5) arg_use_gb5="true";;
+      -1|--geekbench) arg_use_gb56="true";;
       -j|--json) arg_json="true";;
       -c|--color)
       assert_argument "$1" "$opt"
@@ -260,7 +262,7 @@ send_output() {
     fi
     )
     {
-      if [ -n "$arg_use_gb45" ]; then
+      if [ -n "$arg_use_gb56" ]; then
         printf "${cbwhite}| ${cblsky}%-45s ${cbwhite}| ${cblgreen}%-45s ${cbwhite}|\n" "Benchy result "$resulturl
         printf "${cbwhite}+%47s+%47s+${creset}\n" | tr ' ' '-'
       else
@@ -364,17 +366,10 @@ print_virtualization() {
 }
 
 gb_string() {
-  if [ "$gb_version" -eq 9 ]; then
-    gbver="$1"
-    if [ "$gbver" -eq 5 ]; then
-      awk 'f{if ($0=="</div>") exit; print} $0=="<div class=\047platform\047>"{f=1}' "$2"
-    else
-      awk -F[\<\>] '/colspan=\0472\047/{ print $3 }' "$2"
-    fi
-  elif [ "$gb_version" -eq 5 ]; then
-    awk 'f{if ($0=="</div>") exit; print} $0=="<div class=\047platform\047>"{f=1}' "$1"
-  else
+  if [ "$gb_version" -eq 4 ]; then
     awk -F[\<\>] '/colspan=\0472\047/{ print $3 }' "$1"
+  else
+    grep '^Geekbench [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*' "$1"
   fi
 }
 opening_json() {
@@ -410,7 +405,6 @@ binarycheck() {
   fio_path=$benchy_path/fio
   iperf_path=$benchy_path/iperf3
   speedtest_path=$benchy_path/speedtest
-  geekbench_path="${benchy_path}/gb${gb_version}"
   bc_path=$benchy_path/bc
   jq_path=$benchy_path/jq
   ipformation=$benchy_path/ipformation.json
@@ -418,6 +412,12 @@ binarycheck() {
   continent_list=$benchy_path/continent.csv
   continent_file=$benchy_path/continent.txt
   decolorize=$benchy_path/uncolor.perl
+
+  # Geekbench link
+  gb6_link="https://cdn.geekbench.com/Geekbench-6.1.0-Linux.tar.gz"
+  gb5_link="https://cdn.geekbench.com/Geekbench-5.5.1-Linux.tar.gz"
+  gb4_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
+  gbarm_link="https://cdn.geekbench.com/Geekbench-5.5.0-LinuxARMPreview.tar.gz"
 
   # Fio binary
   is_installed fio && fio="fio" || fio="$fio_path/fio"
@@ -439,7 +439,6 @@ binarycheck() {
   [ $? -eq 0 ] && ipv6_status="true" || ipv6_status="false"
   {
     mkdir -p $benchy_path
-    [ -z "$arg_use_gb45" ] && mkdir -p $geekbench_path || mkdir -p "${benchy_path}/gb4" "${benchy_path}/gb5"
     say "Fetching required asset, please wait a moment..."
     gitlink="https://github.com/L1so/benchy/raw/${branch:-main}/binary"
     # IP Information
@@ -471,7 +470,7 @@ binarycheck() {
     else
       # Download speedtest if not exist
       mkdir -p $speedtest_path
-      file_grabber "https://install.speedtest.net/app/cli/ookla-speedtest-1.1.1-linux-${arch}.tgz" "$speedtest_path/ookla.tgz"
+      file_grabber "https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-${arch}.tgz" "$speedtest_path/ookla.tgz"
       tar -xzf "$speedtest_path/ookla.tgz" -C $speedtest_path && rm -f "$speedtest_path/ookla.tgz"
     fi
     # Download bc if not exist
@@ -503,14 +502,17 @@ user_arch() {
     arch="x86_64"
     jq_arch="64"
     fio_size="2G"
-    if [ -n "$arg_use_gb45" ]; then
-      gb_version=9
+    if [ -n "$arg_use_gb56" ]; then
+      gb_version=11
+    elif [ -n "$arg_use_gb5" ]; then
+      gb_version=5
+      gb_ddl_link="$gb5_link"
     elif [ -n "$arg_use_gb4" ]; then
       gb_version=4
-      gb_ddl_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
+      gb_ddl_link="$gb4_link"
     else
-      gb_version=5
-      gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.5.0-Linux.tar.gz"
+      gb_version=6
+      gb_ddl_link="$gb6_link"
     fi
     ;;
     *i?86*)
@@ -518,7 +520,7 @@ user_arch() {
     jq_arch="32"
     fio_size="2G"
     gb_version=4
-    gb_ddl_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
+    gb_ddl_link="$gb4_link"
     ;;
     *arm*|*aarch*)
     case "$(getconf LONG_BIT)" in
@@ -527,11 +529,11 @@ user_arch() {
     esac
     fio_size="512M"; disklimit="512000"
     gb_version=5
-    gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.5.0-LinuxARMPreview.tar.gz"
+    gb_ddl_link="$gbarm_link"
     ;;
     *) die "Architecture not found"; exit 1;;
   esac
-  if [ "$arch" != "x86_64" ]; then unset arg_use_gb45 arg_use_gb4; fi
+  [ "$arch" != "x86_64" ] && unset arg_use_gb56 arg_use_gb4 arg_use_gb5
 }
 
 sysinfo() {
@@ -882,7 +884,7 @@ EOF
       spt_provider=$(cat << 'EOF'
 TestDebit|Marseille, FR|marseille.testdebit.info
 Vancis|Amsterdam, NL|speedtest.vanciscloud.nl
-CoreIX|London, GB|speedtest.coreix.net
+Clouvider|Enfield, GB|speedtest.clouvider.co.uk
 Skynet|Warsaw, PL|speedtest.skynet.net.pl
 Vodafone|Milan, IT|speedtest.vodafone.it
 EOF
@@ -1110,132 +1112,107 @@ geekbench_test() {
   [ -n "$is_bsd" ] && die "Geekbench doesn't support *BSD, exiting test.." && return 1
   # Exit if ipv6 only
   [ "$ipv4_status" = "false" ] && die "Geekbench doesn't work over ipv6, exiting test.." && return 1
+  # Undo geekbench 6 if ram less than 1 GB
+  mem_info=0.5
+  { [ "$gb_version" = 11 ] || [ "$gb_version" = 6 ]; } && [ "$(echo "$mem_info < 1" | $bc)" -eq 1 ] && \
+  die "Geekbench 6 does not work with ram less then 1 GB, switching to Geekbench 5..." && \
+  { gb_version=5; gb_ddl_link="$gb5_link"; unset arg_use_gb56; }
   # Check if machine was musl library
-  if ldd ls | grep -q 'musl'; then die "Geekbench does not support musl library, exiting test.." && return 1; fi
+  if ldd "$(command -v ls)" | grep -q 'musl'; then die "Geekbench does not support musl library, exiting test.." && return 1; fi
   print_space 1
-  if [ "$gb_version" -eq 5 ]; then
-    # Geekbench 5
-    if [ ! -f "$geekbench_path/geekbench5" ]; then
-      printf "${cyan}%s${creset}\n" "Downloading Geekbench 5, this may take a several minute..."
+  dl_geekbench() {
+    _gbv="$1"; geekbench_path="${benchy_path}/gb${_gbv}"; mkdir -p "$geekbench_path"; gb_var=div
+    if [ ! -f "$geekbench_path/geekbench${_gbv}" ]; then
+      printf "${cyan}%s${creset}\n" "Downloading Geekbench ${_gbv}, this may take a several minute..."
       file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
       && printf "\r%s" "$(tput cuu 2; tput ed)"
     fi
-    # Perform geekbench 5 test
-    say "Initializing geekbench 5 test..."
-    gb_output=$($geekbench_path/geekbench5 --upload 2>/dev/null | grep -m 1 "https://browser")
-    gb_var="div"
+    # Perform geekbench N test
+    say "Initializing geekbench ${_gbv} test..."
+    gb_output=$($geekbench_path/geekbench${_gbv} --upload 2>/dev/null | grep -m 1 "https://browser")
+    gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
+    gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
+    eval gb_output_${_gbv}="\"$gb_output\""
+
+    # Grab geekbench score
+    gbfile="$benchy_path/temp_gb${_gbv}.log"
+    file_grabber $gb_output $gbfile
+    gb_st=$(gb_string "$gbfile")
+    gb_wcore=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile")
+    gb_score=$(printf "$gb_wcore" | awk 'FNR==1')
+    gb_mcore=$(printf "$gb_wcore" | awk 'FNR==2')
+    eval "gb_single_core_${_gbv}=\"${gb_score}\""
+    eval "gb_multi_core_${_gbv}=\"${gb_mcore}\""
+    eval "gb_string_${_gbv}=\"${gb_st}\""
     overline
-  elif [ "$gb_version" -eq 9 ]; then
-    # Geekbench 4 & 5
-    gb_var_5="div"; gb_var_4="span"
-    for gbv in 4 5; do
-      gbpath="${benchy_path}/gb${gbv}"
-      if [ ! -f "${benchy_path}/gb${gbv}/geekbench${gbv}" ]; then
-        [ "$gbv" -eq 5 ] && gb_ddl_link="https://cdn.geekbench.com/Geekbench-5.5.0-Linux.tar.gz" \
-        || gb_ddl_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
-        printf "${cyan}%s${creset}\n" "Downloading Geekbench $gbv, this may take a several minute..."
-        file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $gbpath \
-        && printf "\r%s" "$(tput cuu 2; tput ed)"
-      fi
-      say "Initializing geekbench $gbv test..."
-      gb_output=$($gbpath/geekbench${gbv} --upload 2>/dev/null | grep -m 1 "https://browser")
-      gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
-      gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
-      eval gb_output_${gbv}="\"$gb_output\""; unset gb_output
-      overline
+  }
+  if [ "$gb_version" -eq 11 ]; then
+    for gbv in 5 6; do
+      eval "gb_ddl_link=\$gb${gbv}_link"; dl_geekbench $gbv
     done
-  elif [ "$gb_version" -eq 4 ]; then
-    # Geekbench 4
-    if [ ! -f "$geekbench_path/geekbench4" ]; then
-      printf "${cyan}%s${creset}\n" "Downloading Geekbench 4, this may take a several minute..."
-      file_grabber $gb_ddl_link | tar xzf - --strip-components=1 -C $geekbench_path \
-      && printf "\r%s" "$(tput cuu 2; tput ed)"
-    fi
-    # Perform geekbench 4 test
-    say "Initializing geekbench 4 test..."
-    gb_output=$($geekbench_path/geekbench${gb_version} --upload 2>/dev/null | grep -m 1 "https://browser")
-    gb_var="span"
-    overline
+  else
+    [ "$gb_version" -eq 4 ] && gb_var=span
+    dl_geekbench $gb_version
   fi
   {
     # Parsing result
-    if [ -n "$gb_output" ] || { [ -n "$gb_output_5" ] && [ -n "$gb_output_4" ]; }; then
-      totaltime=$(($(awk 'BEGIN{srand();print srand()}')-startTime))
-      totalmin=$(echo "($totaltime % 3600) / 60" | $bc)
-      totalsec=$(echo "$totaltime % 60" | $bc)
-      if [ -z "$arg_use_gb45" ]; then
-        gb_output="${gb_output#"${gb_output%%[![:space:]]*}"}" # Remove whitespace
-        gb_output="${gb_output%"${gb_output##*[![:space:]]}"}" # Remove whitespace
-        gbfile="$benchy_path/temp_gb${gb_version}.log"
-        file_grabber $gb_output $gbfile
-        gb_single_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==1')
-        gb_multi_core=$(awk -F "<${gb_var}[^>]*>(<d>)?|(</?d>)?</${gb_var}>" '$2~/[0-9]/{print $2}' "$gbfile" | awk 'FNR==2')
-        gb_string=$(gb_string "$gbfile")
-        printf "${cbwhite}+%47s+\n" | tr ' ' '-'
-        printf "${cbwhite}| ${cbwhite}%-32s |\n" "$gb_string"
-        printf "${cbwhite}+%47s+\n" | tr ' ' '='
-        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Single Core" "$gb_single_core"
-        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Multi Core" "$gb_multi_core"
-        printf "${cbwhite}+%47s+\n" | tr ' ' '-'
-        printf "${cbwhite}| ${cblgreen}%-32s ${cbwhite}|\n" "$gb_output"
-        printf "${cbwhite}+%47s+\n" | tr ' ' '-'
-        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
-        printf "${cbwhite}+%47s+${creset}\n" | tr ' ' '-'
-        # JSON
-        if [ -n "$arg_json" ]; then
-          cat <<GBJSON | $jq --argjson gj "$(cat)" '.geekbench_test += $gj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          {
-          	"geekbench${gb_version}": {
-          		"gb_version": "$gb_string",
-          		"single_core": "$gb_single_core",
-          		"multi_core": "$gb_multi_core",
-          		"gb_link": "$gb_output"
-          	}
+    totaltime=$(($(awk 'BEGIN{srand();print srand()}')-startTime))
+    totalmin=$(echo "($totaltime % 3600) / 60" | $bc)
+    totalsec=$(echo "$totaltime % 60" | $bc)
+    if [ -n "$arg_use_gb56" ]; then
+      printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '-'
+      printf "${cbwhite}| ${cbblue}%-45s | %-45s ${cbwhite}|\n" "$gb_string_6" "$gb_string_5"
+      printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '='
+      printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Single Core" "$gb_single_core_6" "Single Core" "$gb_single_core_5"
+      printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Multi Core" "$gb_multi_core_6" "Multi Core" "$gb_multi_core_5"
+      printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '-'
+      printf "${cbwhite}| ${cblgreen}%-45s ${cbwhite}| ${cblgreen}%-45s ${cbwhite}|\n" "$gb_output_6" "$gb_output_5"
+      printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '-'
+      printf "${cbwhite}| ${cblsky}%-45s ${cbwhite}| ${cblgreen}%-45s ${cbwhite}|\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
+      printf "${cbwhite}+%47s+%47s+${creset}\n" | tr ' ' '-'
+      if [ -n "$arg_json" ]; then
+        cat <<GBJSON | $jq --argjson gj "$(cat)" '.geekbench_test += $gj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+        {
+          "geekbench6": {
+            "gb_version": "$gb_string_6",
+            "single_core": "$gb_single_core_6",
+            "multi_core": "$gb_multi_core_6",
+            "gb_link": "$gb_output_6"
+          },
+          "geekbench5": {
+            "gb_version": "$gb_string_5",
+            "single_core": "$gb_single_core_5",
+            "multi_core": "$gb_multi_core_5",
+            "gb_link": "$gb_output_5"
           }
+        }
 GBJSON
-        fi
-      else
-        gbfile_4="$benchy_path/temp_gb4.log"; gbfile_5="$benchy_path/temp_gb5.log"
-        file_grabber $gb_output_4 $gbfile_4; file_grabber $gb_output_5 $gbfile_5
-        gb_single_core_4=$(awk -F "<${gb_var_4}[^>]*>(<d>)?|(</?d>)?</${gb_var_4}>" '$2~/[0-9]/{print $2}' "$gbfile_4" | awk 'FNR==1')
-        gb_multi_core_4=$(awk -F "<${gb_var_4}[^>]*>(<d>)?|(</?d>)?</${gb_var_4}>" '$2~/[0-9]/{print $2}' "$gbfile_4" | awk 'FNR==2')
-        gb_single_core_5=$(awk -F "<${gb_var_5}[^>]*>(<d>)?|(</?d>)?</${gb_var_5}>" '$2~/[0-9]/{print $2}' "$gbfile_5" | awk 'FNR==1')
-        gb_multi_core_5=$(awk -F "<${gb_var_5}[^>]*>(<d>)?|(</?d>)?</${gb_var_5}>" '$2~/[0-9]/{print $2}' "$gbfile_5" | awk 'FNR==2')
-        gb_string_4=$(gb_string 4 "$gbfile_4"); gb_string_5=$(gb_string 5 "$gbfile_5")
-        printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '-'
-        printf "${cbwhite}| ${cbblue}%-32s | %-32s ${cbwhite}|\n" "$gb_string_5" "$gb_string_4"
-        printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '='
-        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Single Core" "$gb_single_core_5" "Single Core" "$gb_single_core_4"
-        printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Multi Core" "$gb_multi_core_5" "Multi Core" "$gb_multi_core_4"
-        printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '-'
-        printf "${cbwhite}| ${cblgreen}%-32s ${cbwhite}| ${cblgreen}%-32s ${cbwhite}|\n" "$gb_output_5" "$gb_output_4"
-        printf "${cbwhite}+%47s+%47s+\n" | tr ' ' '-'
-        printf "${cbwhite}| ${cblsky}%-45s ${cbwhite}| ${cblgreen}%-45s ${cbwhite}|\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
-        printf "${cbwhite}+%47s+%47s+${creset}\n" | tr ' ' '-'
-        # JSON
-        if [ -n "$arg_json" ]; then
-          cat <<GBJSON | $jq --argjson gj "$(cat)" '.geekbench_test += $gj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
-          {
-          	"geekbench5": {
-          		"gb_version": "$gb_string_5",
-          		"single_core": "$gb_single_core_5",
-          		"multi_core": "$gb_multi_core_5",
-          		"gb_link": "$gb_output_5"
-          	},
-          	"geekbench4": {
-          		"gb_version": "$gb_string_4",
-          		"single_core": "$gb_single_core_4",
-          		"multi_core": "$gb_multi_core_4",
-          		"gb_link": "$gb_output_4"
-          	}
-          }
-GBJSON
-        fi
       fi
-      rm -f "$gbfile" "$gbfile_4" "$gbfile_5"
     else
-      die "Geekbench $gb_version run failed, please retry again"; return 1
+      printf "${cbwhite}+%47s+\n" | tr ' ' '-'
+      printf "${cbwhite}| ${cbwhite}%-32s |\n" "$gb_st"
+      printf "${cbwhite}+%47s+\n" | tr ' ' '='
+      printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Single Core" "$gb_score"
+      printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Multi Core" "$gb_mcore"
+      printf "${cbwhite}+%47s+\n" | tr ' ' '-'
+      printf "${cbwhite}| ${cblgreen}%-32s ${cbwhite}|\n" "$gb_output"
+      printf "${cbwhite}+%47s+\n" | tr ' ' '-'
+      printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
+      printf "${cbwhite}+%47s+${creset}\n" | tr ' ' '-'
+      if [ -n "$arg_json" ]; then
+        cat <<GBJSON | $jq --argjson gj "$(cat)" '.geekbench_test += $gj' "$mainjson" > /tmp/main.json && mv /tmp/main.json "$mainjson"
+        {
+          "geekbench${gb_version}": {
+            "gb_version": "$gb_st",
+            "single_core": "$gb_score",
+            "multi_core": "$gb_mcore",
+            "gb_link": "$gb_output"
+          }
+        }
+GBJSON
+      fi
     fi
+      rm -f "$gbfile" "$gbfile_4" "$gbfile_5"
   } | parse_output
 }
 
