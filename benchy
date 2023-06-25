@@ -4,6 +4,11 @@
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
 currentVersion="v2.7"; rev_date="24 Jun 2023"
+# Geekbench link
+gb6_link="https://cdn.geekbench.com/Geekbench-6.1.0-Linux.tar.gz"
+gb5_link="https://cdn.geekbench.com/Geekbench-5.5.1-Linux.tar.gz"
+gb4_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
+gbarm_link="https://cdn.geekbench.com/Geekbench-5.5.0-LinuxARMPreview.tar.gz"
 disable_color() {
   arg_colorize="false"
   unset cred cgreen cyellw cblue cyan csky clyl creset
@@ -401,6 +406,7 @@ closing_json() {
 binarycheck() {
   [ -n "$this_instance_use_env" ] && printf "${cyan}%s${creset}\n" "Found predefined option !"
   # Building directory
+  coyinibisa="YAKAANA"
   benchy_path=$HOME/.benchy_file
   fio_path=$benchy_path/fio
   iperf_path=$benchy_path/iperf3
@@ -412,12 +418,6 @@ binarycheck() {
   continent_list=$benchy_path/continent.csv
   continent_file=$benchy_path/continent.txt
   decolorize=$benchy_path/uncolor.perl
-
-  # Geekbench link
-  gb6_link="https://cdn.geekbench.com/Geekbench-6.1.0-Linux.tar.gz"
-  gb5_link="https://cdn.geekbench.com/Geekbench-5.5.1-Linux.tar.gz"
-  gb4_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
-  gbarm_link="https://cdn.geekbench.com/Geekbench-5.5.0-LinuxARMPreview.tar.gz"
 
   # Fio binary
   is_installed fio && fio="fio" || fio="$fio_path/fio"
@@ -535,7 +535,31 @@ user_arch() {
   esac
   [ "$arch" != "x86_64" ] && unset arg_use_gb56 arg_use_gb4 arg_use_gb5
 }
+diskmeminfo() {
+  # Disk & Memory Usage
+  df_output=$(df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^dev|^udev|\/docker\/|^none|\/boot\/)/{ total+=$2; used+=$3; avai+=$4; cline++ }END{ printf("%s %s %s %.0f %s", total, used, avai, (used/total)*100, cline); }')
+  disk_info=$(echo "$df_output" | awk '{ print $1 }' | convertsize)
+  disk_usage=$(echo "$df_output"| awk '{ print $2 }'| convertsize)
+  disk_percentage=$(echo "$df_output" | awk '{ print $4"%" }')
+  disk_count=$(echo "$df_output" | awk '{ print $NF }')
+  if [ -n "$is_bsd" ]; then
+      mem_info=$(sysctl -n hw.physmem)
+      mem_usage=$(vmstat | awk 'END{print ($3+0) * 1024}')
+      mem_free=$((mem_info-mem_usage))
+      mem_percentage=$(echo "$mem_usage*1024*100/$mem_free" | $bc)
+      swap_info=$(pstat -s | awk '/dev/{print $2}' | convertsize)
 
+      mem_info=$(echo "$((mem_info/1000))" | convertsize)
+      mem_usage=$(echo "$mem_usage" | convertsize)
+      mem_percentage=$(printf "%s%%" "$mem_percentage")
+  else
+      mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
+      mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB\n", $3/1024^3 }')
+      mem_percentage=$(free -b | awk 'NR==2{printf "%.0f%s\n", $3*100/$2, "%" }')
+      swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
+  fi
+  mem_info_num=$(printf $mem_info | awk '{ print $1 }')
+}
 sysinfo() {
   # System Information
   # OS
@@ -625,32 +649,7 @@ sysinfo() {
   fi
   virt_type="$(print_virtualization)"
   virt_type="${virt_type:-none}"
-
-  # Disk & Memory Usage
-  # Example output: 1K-blocks    Used Available Use%
-  # Example output: 30929256 15854720 13485448 27
-  df_output=$(df -k 2>/dev/null | awk 'NR>1 && $0 !~ /(\/snap\/|^tmpfs|^dev|^udev|\/docker\/|^none|\/boot\/)/{ total+=$2; used+=$3; avai+=$4; cline++ }END{ printf("%s %s %s %.0f %s", total, used, avai, (used/total)*100, cline); }')
-  disk_info=$(echo "$df_output" | awk '{ print $1 }' | convertsize)
-  disk_usage=$(echo "$df_output"| awk '{ print $2 }'| convertsize)
-  disk_percentage=$(echo "$df_output" | awk '{ print $4"%" }')
-  disk_count=$(echo "$df_output" | awk '{ print $NF }')
-  if [ -n "$is_bsd" ]; then
-      mem_info=$(sysctl -n hw.physmem)
-      mem_usage=$(vmstat | awk 'END{print ($3+0) * 1024}')
-      mem_free=$((mem_info-mem_usage))
-      mem_percentage=$(echo "$mem_usage*1024*100/$mem_free" | $bc)
-      swap_info=$(pstat -s | awk '/dev/{print $2}' | convertsize)
-
-      mem_info=$(echo "$((mem_info/1000))" | convertsize)
-      mem_usage=$(echo "$mem_usage" | convertsize)
-      mem_percentage=$(printf "%s%%" "$mem_percentage")
-  else
-      mem_info=$(awk -F":" '$1~/MemTotal/{print $2}' /proc/meminfo | convertsize)
-      mem_usage=$(free -b | awk 'NR==2{printf "%.1f GiB\n", $3/1024^3 }')
-      mem_percentage=$(free -b | awk 'NR==2{printf "%.0f%s\n", $3*100/$2, "%" }')
-      swap_info=$(free | awk '/Swap/ {print $2}' | convertsize)
-  fi
-
+  # Moved to new function (FIX TO https://github.com/L1so/benchy/issues/30)
   printf "${cbwhite}%-48s%s\n" "Server Insight" "Hardware Information"
   printf "${cbyan}%-48s%s\n" "---------------------" "---------------------"
   printf "${cbwhite}%-10s : ${csky}%-35s${cbwhite}%-11s : ${csky}%-10s\n" "OS" "$currentOS" "Model" "$cpu_model" "Location" "$country" "Core" "$cpu_core $cpu_freq" \
@@ -1113,7 +1112,7 @@ geekbench_test() {
   # Exit if ipv6 only
   [ "$ipv4_status" = "false" ] && die "Geekbench doesn't work over ipv6, exiting test.." && return 1
   # Undo geekbench 6 if ram less than 1 GB
-  { [ "$gb_version" = 11 ] || [ "$gb_version" = 6 ]; } && [ "$(echo "$mem_info < 1" | $bc)" -eq 1 ] && \
+  { [ "$gb_version" = 11 ] || [ "$gb_version" = 6 ]; } && [ "$(echo "$mem_info_num < 1" | $bc)" -eq 1 ] && \
   die "Geekbench 6 does not work with ram less then 1 GB, switching to Geekbench 5..." && \
   { gb_version=5; gb_ddl_link="$gb5_link"; unset arg_use_gb56; }
   # Check if machine was musl library
@@ -1189,12 +1188,12 @@ GBJSON
       fi
     else
       printf "${cbwhite}+%47s+\n" | tr ' ' '-'
-      printf "${cbwhite}| ${cbwhite}%-32s |\n" "$gb_st"
+      printf "${cbwhite}| ${cbwhite}%-45s |\n" "$gb_st"
       printf "${cbwhite}+%47s+\n" | tr ' ' '='
       printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Single Core" "$gb_score"
       printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Multi Core" "$gb_mcore"
       printf "${cbwhite}+%47s+\n" | tr ' ' '-'
-      printf "${cbwhite}| ${cblgreen}%-32s ${cbwhite}|\n" "$gb_output"
+      printf "${cbwhite}| ${cblgreen}%-45s ${cbwhite}|\n" "$gb_output"
       printf "${cbwhite}+%47s+\n" | tr ' ' '-'
       printf "${cbwhite}| ${cblsky}%-18s ${cbwhite}| ${cblgreen}%-24s ${cbwhite}|\n" "Benchy time spent" "$totalmin Minutes $totalsec Seconds"
       printf "${cbwhite}+%47s+${creset}\n" | tr ' ' '-'
@@ -1223,7 +1222,7 @@ main() {
   user_arch
   binarycheck
   opening_json
-  sysinfo | parse_output
+  diskmeminfo; sysinfo | parse_output
   disk_test
   if net_header; then
     [ -n "$arg_prefer_speedtest" ] && parse_speedtest || parse_iperf
