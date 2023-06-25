@@ -1113,7 +1113,6 @@ geekbench_test() {
   # Exit if ipv6 only
   [ "$ipv4_status" = "false" ] && die "Geekbench doesn't work over ipv6, exiting test.." && return 1
   # Undo geekbench 6 if ram less than 1 GB
-  mem_info=0.5
   { [ "$gb_version" = 11 ] || [ "$gb_version" = 6 ]; } && [ "$(echo "$mem_info < 1" | $bc)" -eq 1 ] && \
   die "Geekbench 6 does not work with ram less then 1 GB, switching to Geekbench 5..." && \
   { gb_version=5; gb_ddl_link="$gb5_link"; unset arg_use_gb56; }
