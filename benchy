@@ -884,7 +884,7 @@ EOF
       spt_provider=$(cat << 'EOF'
 TestDebit|Marseille, FR|marseille.testdebit.info
 Vancis|Amsterdam, NL|speedtest.vanciscloud.nl
-Clouvider|Enfield, GB|speedtest.clouvider.co.uk
+Vox|London, GB|speedtest-ldn.voxtelecom.co.za
 Skynet|Warsaw, PL|speedtest.skynet.net.pl
 Vodafone|Milan, IT|speedtest.vodafone.it
 EOF
@@ -920,7 +920,7 @@ EOF
         spt_provider=$(cat << 'EOF'
 Biznet|Jakarta, ID|speedtest.biznetnetworks.com
 Claro|Montevidio, UY|speedtest.claro.com.uy
-CoreIX|London, GB|speedtest.coreix.net
+Vox|London, GB|speedtest-ldn.voxtelecom.co.za
 Lightwire|Hamilton, NZ|speedtest.lightwire.co.nz
 Airstream|Wisconsin, US|speedtest.airstreamcomm.net
 EOF
