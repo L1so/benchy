@@ -864,9 +864,9 @@ EOF
       "Asia")
       spt_provider=$(cat << 'EOF'
 Biznet|Jakarta, ID|speedtest.biznetnetworks.com
-Exabytes|Kuala Lumpur, MY|ookla.mschosting.com
-SingTel|Singapore, SG|speedtest.singnet.com.sg
-GLBB|Tokyo, JP|speedtest-xg-tokyo.glbb.ne.jp
+U Mobile|Kuala Lumpur, MY|speedtest.u.com.my
+MyRepublic|Singapore, SG|speedtest.myrepublic.com.sg
+CAT TELECOM|Hatyai, TH|hatyai.catspeedtest.net
 Airtel|Chennai, IN|speedtestchn.airtelbroadband.in
 EOF
       );;
