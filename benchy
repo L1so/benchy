@@ -1,14 +1,14 @@
 #!/bin/sh
-# Benchy V2.7
+# Benchy V2.8
 # Heavily influenced by masonr's Yet-Another-Bench-Script
 # https://github.com/masonr/yet-another-bench-script
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
-currentVersion="v2.7"; rev_date="24 Jun 2023"
+currentVersion="v2.8"; rev_date="19 Nov 2024"
 # Geekbench link
-gb6_link="https://cdn.geekbench.com/Geekbench-6.1.0-Linux.tar.gz"
+gb6_link="https://cdn.geekbench.com/Geekbench-6.3.0-Linux.tar.gz"
 gb5_link="https://cdn.geekbench.com/Geekbench-5.5.1-Linux.tar.gz"
 gb4_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
-gbarm_link="https://cdn.geekbench.com/Geekbench-5.5.0-LinuxARMPreview.tar.gz"
+gbarm_link="https://cdn.geekbench.com/Geekbench-6.3.0-LinuxARMPreview.tar.gz"
 disable_color() {
   arg_colorize="false"
   unset cred cgreen cyellw cblue cyan csky clyl creset
@@ -883,7 +883,7 @@ EOF
       spt_provider=$(cat << 'EOF'
 TestDebit|Marseille, FR|marseille.testdebit.info
 Vancis|Amsterdam, NL|speedtest.vanciscloud.nl
-Vox|London, GB|speedtest-ldn.voxtelecom.co.za
+Fibre|London, GB|sp01.thn.lon.eng.communityfibre.co.uk
 Skynet|Warsaw, PL|speedtest.skynet.net.pl
 Vodafone|Milan, IT|speedtest.vodafone.it
 EOF

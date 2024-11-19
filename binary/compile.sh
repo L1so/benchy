@@ -71,9 +71,9 @@ if [ "$is_fio" = "yes" ]; then
   cd ./libaio-0.3.113 && CC=$c_compiler ENABLE_SHARED=0 LDFLAGS="-static" make prefix=/hbb_exe install
   #2 of 2
   cd $tmpdir
-  curl -Lo $tmpdir/fio.tar.gz https://git.kernel.dk/cgit/fio/snapshot/fio-3.35.tar.gz
+  curl -Lo $tmpdir/fio.tar.gz https://brick.kernel.dk/snaps/fio-3.38.tar.gz
   tar -xzf $tmpdir/fio.tar.gz -C $tmpdir
-  cd ./fio-3.35 && \
+  cd ./fio-3.38 && \
   ./configure \
   --cc=$c_compiler \
   --build-static \
@@ -82,9 +82,9 @@ if [ "$is_fio" = "yes" ]; then
 fi
 if [ "$is_iperf" = "yes" ]; then
   # Download iperf3
-  curl -Lo $tmpdir/iperf.tar.gz https://downloads.es.net/pub/iperf/iperf-3.13.tar.gz
+  curl -Lo $tmpdir/iperf.tar.gz https://downloads.es.net/pub/iperf/iperf-3.17.tar.gz
   tar -xzf $tmpdir/iperf.tar.gz -C $tmpdir
-  cd $tmpdir/iperf-3.13 && \
+  cd $tmpdir/iperf-3.17 && \
   CC=$c_compiler LDFLAGS="-static" ./configure --enable-static-bin --disable-shared --without-openssl --disable-profiling --build x86_64-pc-linux-gnu --host $type && make
   cp src/iperf3 /tmp/
 fi
@@ -101,9 +101,9 @@ fi
 if [ "$is_util" = "yes" ]; then
   # Download util-linux
   cd $tmpdir
-  curl -Lo $tmpdir/util.tar.gz https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.35/util-linux-2.35.2.tar.gz
+  curl -Lo $tmpdir/util.tar.gz https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.39/util-linux-2.39.1.tar.gz
   tar -xzf $tmpdir/util.tar.gz -C $tmpdir
-  cd ./util-linux-2.35.2
+  cd ./util-linux-2.39.1
   CC=$c_compiler LDFLAGS=-static CFLAGS=-static SUID_CFLAGS=-static SUID_LDFLAGS=-static CPPFLAGS=-static LDFLAGS=-static \
   ./configure \
   --enable-static \
@@ -132,9 +132,9 @@ if [ "$is_jq" = "yes" ]; then
     cd $tmpdir/automake-1.14 && ./configure && make && make install
   fi
   # Download jq
-  curl -Lo $tmpdir/jq.tar.gz https://github.com/stedolan/jq/releases/download/jq-1.6/jq-1.6.tar.gz
+  curl -Lo $tmpdir/jq.tar.gz https://github.com/stedolan/jq/releases/download/jq-1.7/jq-1.7.tar.gz
   tar -xzf $tmpdir/jq.tar.gz -C $tmpdir
-  cd $tmpdir/jq-1.6 && autoreconf -fvi
+  cd $tmpdir/jq-1.7 && autoreconf -fvi
   CC=$c_compiler LDFLAGS="-static" ./configure --disable-docs --enable-all-static --build x86_64-pc-linux-gnu --host $type && { make || true ; }
   cp -v ./jq /tmp/jq
 fi
@@ -146,5 +146,6 @@ fi
 [ -x "/tmp/lsblk" ] && libcheck /tmp/lsblk && cp /tmp/lsblk /io/bin/lsblk/lsblk_$type && rm -f /tmp/lsblk
 [ -x "/tmp/jq" ] && libcheck /tmp/jq && cp /tmp/jq /io/bin/jq/jq_$type && rm -f /tmp/jq
 # Cleaning
+chown -R 1000:1000 /io/bin/
 rm -rf "$tmpdir"
 echo "Done"
