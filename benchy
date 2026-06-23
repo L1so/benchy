@@ -5,10 +5,10 @@
 # shellcheck disable=SC2183,SC2030,SC2086,SC2181,SC2031
 currentVersion="v2.8"; rev_date="19 Nov 2024"
 # Geekbench link
-gb6_link="https://cdn.geekbench.com/Geekbench-6.3.0-Linux.tar.gz"
+gb6_link="https://cdn.geekbench.com/Geekbench-6.7.1-Linux.tar.gz"
 gb5_link="https://cdn.geekbench.com/Geekbench-5.5.1-Linux.tar.gz"
 gb4_link="https://cdn.geekbench.com/Geekbench-4.4.4-Linux.tar.gz"
-gbarm_link="https://cdn.geekbench.com/Geekbench-6.3.0-LinuxARMPreview.tar.gz"
+gbarm_link="https://cdn.geekbench.com/Geekbench-6.7.1-LinuxARMPreview.tar.gz"
 disable_color() {
   arg_colorize="false"
   unset cred cgreen cyellw cblue cyan csky clyl creset
